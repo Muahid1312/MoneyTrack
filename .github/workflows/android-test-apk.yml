@@ -17,8 +17,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
@@ -27,17 +27,15 @@ jobs:
           channel: stable
           cache: true
       - name: Resolve dependencies
-        run: flutter pub get
+        run: bash tool/ci_capture.sh 'Dependency resolution' flutter pub get
       - name: Check SQLite migration and rollback SQL
         run: python3 tool/check_sqlite.py
       - name: Format sources in the build workspace
         run: dart format lib test
       - name: Analyze
-        run: flutter analyze --no-fatal-infos --no-fatal-warnings
-      - name: Run automated tests
-        run: flutter test
+        run: bash tool/ci_capture.sh 'Flutter analysis' flutter analyze --no-fatal-infos --no-fatal-warnings
       - name: Build APK for device testing
-        run: flutter build apk --debug
+        run: bash tool/ci_capture.sh 'Android debug build' flutter build apk --debug
       - name: Record artifact checksum
         run: sha256sum build/app/outputs/flutter-apk/app-debug.apk > build/app/outputs/flutter-apk/app-debug.apk.sha256
       - name: Upload debug-signed test APK
@@ -49,3 +47,5 @@ jobs:
             build/app/outputs/flutter-apk/app-debug.apk.sha256
           if-no-files-found: error
           retention-days: 14
+      - name: Run automated tests
+        run: bash tool/ci_capture.sh 'Automated tests' flutter test
