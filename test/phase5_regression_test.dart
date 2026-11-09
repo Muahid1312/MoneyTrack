@@ -127,7 +127,7 @@ void main() {
     expect(find.byType(TransactionTile).evaluate().length,lessThan(30));
     await tester.enterText(find.byType(TextField).first,'Entry 4999');
     await tester.pump(const Duration(milliseconds:300));await tester.pumpAndSettle();
-    expect(c.read(filteredTransactionsProvider).count,1);expect(find.text('Entry 4999'),findsOneWidget);
+    expect(c.read(filteredTransactionsProvider).count,1);expect(find.descendant(of:find.byType(TransactionTile), matching:find.text('Entry 4999')),findsOneWidget);
     expect(tester.takeException(),isNull);
     await tester.pumpWidget(const SizedBox.shrink());c.dispose();
     tester.view.resetPhysicalSize();tester.view.resetDevicePixelRatio();

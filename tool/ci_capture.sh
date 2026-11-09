@@ -28,9 +28,14 @@ if [[ "$result" -ne 0 && "${GITHUB_ACTIONS:-}" == "true" ]]; then
 import pathlib, sys
 text = pathlib.Path(sys.argv[1]).read_text(errors='replace')
 lines = [line for line in text.splitlines() if 'error' in line.lower() or line.lstrip().startswith(('e:', '> '))]
-message = text[-30000:] if sys.argv[2] == 'Automated tests' else ('\n'.join(lines)[-30000:] if lines else text[-12000:])
-message = message.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
-print('::error title=CI diagnostics::' + message)
+messages = text.split('\nFAILED:')[1:] if sys.argv[2] == 'Automated tests' else []
+if messages:
+    messages = ['FAILED:' + '\n'.join(line[:350] for line in part.splitlines())[:3500] for part in messages]
+else:
+    messages = ['\n'.join(lines)[-3500:] if lines else text[-3500:]]
+for message in messages:
+    message = message.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+    print('::error title=CI diagnostics::' + message)
 PYANNOTATION
 fi
 exit "$result"

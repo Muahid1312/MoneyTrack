@@ -59,7 +59,7 @@ void main(){
     await tester.pumpWidget(AppLockGate(security:security,builder:()=>const MaterialApp(home:Scaffold(body:Text('Protected financial records')))));
     await tester.pumpAndSettle();expect(find.text('Protected financial records'),findsNothing);
     await tester.tap(find.text('Use biometrics'));await tester.pumpAndSettle();expect(find.text('Protected financial records'),findsOneWidget);
-    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);await tester.pump();
-    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);await tester.pumpAndSettle();expect(find.text('Protected financial records'),findsNothing);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);await tester.pump();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);await tester.pumpAndSettle();expect(find.text('Protected financial records'),findsNothing);
   });
 }
