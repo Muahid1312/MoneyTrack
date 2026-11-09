@@ -14,6 +14,7 @@ concurrency:
 
 jobs:
   verify-and-build:
+    if: ${{ !contains(github.event.head_commit.message, '[checks only]') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     steps:
@@ -48,4 +49,17 @@ jobs:
           if-no-files-found: error
           retention-days: 14
       - name: Run automated tests
-        run: bash tool/ci_capture.sh 'Automated tests' flutter test
+        run: bash tool/ci_capture.sh 'Automated tests' bash tool/run_flutter_tests.sh
+
+  tests-only:
+    if: ${{ contains(github.event.head_commit.message, '[checks only]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: bash tool/ci_capture.sh 'Dependency resolution' flutter pub get
+      - run: bash tool/ci_capture.sh 'Automated tests' bash tool/run_flutter_tests.sh
