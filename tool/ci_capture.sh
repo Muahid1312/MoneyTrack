@@ -23,4 +23,14 @@ PY
     echo '</pre>'
   } >> "$GITHUB_STEP_SUMMARY"
 fi
+if [[ "$result" -ne 0 && "${GITHUB_ACTIONS:-}" == "true" ]]; then
+  python3 - "$log_file" <<'PYANNOTATION'
+import pathlib, sys
+text = pathlib.Path(sys.argv[1]).read_text(errors='replace')
+lines = [line for line in text.splitlines() if 'error' in line.lower()]
+message = '\n'.join(lines)[-30000:] if lines else text[-12000:]
+message = message.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+print('::error title=CI diagnostics::' + message)
+PYANNOTATION
+fi
 exit "$result"
