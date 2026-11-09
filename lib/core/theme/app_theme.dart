@@ -52,9 +52,9 @@ abstract final class AppTheme {
       highlightColor: Colors.transparent,
       visualDensity: VisualDensity.standard,
       materialTapTargetSize: MaterialTapTargetSize.padded,
-      pageTransitionsTheme: const PageTransitionsTheme(builders: {
-        TargetPlatform.android: FadeForwardsPageTransitionsBuilder(),
-        TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+      pageTransitionsTheme: PageTransitionsTheme(builders: {
+        ...const PageTransitionsTheme().builders,
+        TargetPlatform.android: const FadeForwardsPageTransitionsBuilder(),
       }),
       appBarTheme: AppBarTheme(
         backgroundColor: p.background,

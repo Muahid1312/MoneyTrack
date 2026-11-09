@@ -33,7 +33,7 @@ Widget _field(TextEditingController controller,String label,{bool required=false
 Widget _amount(TextEditingController controller,AppCurrency currency,String label)=>Padding(padding:const EdgeInsets.symmetric(vertical:12),
   child:TextFormField(controller:controller,keyboardType:const TextInputType.numberWithOptions(decimal:true),
     decoration:InputDecoration(labelText:'$label (${currency.code})'),validator:(v)=>(Money.parseMinor(v??'',currency)??0)>0?null:'Enter a valid positive amount'));
-Widget _error(String? message,BuildContext context)=>message==null?const SizedBox.shrink():Padding(padding:const EdgeInsets.symmetric(vertical:12),
+Widget _errorNotice(String? message,BuildContext context)=>message==null?const SizedBox.shrink():Padding(padding:const EdgeInsets.symmetric(vertical:12),
   child:Text(message,style:TextStyle(color:Theme.of(context).colorScheme.error)));
 
 class DebtForm extends ConsumerStatefulWidget {
@@ -60,7 +60,7 @@ class _DebtFormState extends ConsumerState<DebtForm> {
         _field(_reference,'Unique bank/cash reference',required:true,maxLength:100),
         const Text('Records the original cash movement now. Borrowing is not income; lending is not an expense. Existing historical debts must not be entered again as a new cash movement.'),
       ],
-      _field(_due,'Due date (optional)',date:true),_field(_note,'Notes (optional)',maxLength:1000),_error(_error,context),
+      _field(_due,'Due date (optional)',date:true),_field(_note,'Notes (optional)',maxLength:1000),_errorNotice(_error,context),
       FilledButton(onPressed:_saving?null:() async {
         if(_saving || !_form.currentState!.validate())return;setState((){_saving=true;_error=null;});
         try {
@@ -101,7 +101,7 @@ class _RepaymentState extends ConsumerState<RepaymentForm> {
         decoration:InputDecoration(labelText:'Manual rate: 1 ${wallet?.currency.code??'wallet currency'} in ${widget.debt.currency.code}',helperText:'The rate and both amounts are saved. No rate is fetched.'),
         validator:(v){try{ExchangeRate.parse(v??'');return null;}catch(_){return 'Enter a valid positive rate';}}),
       if(preview!=null)Padding(padding:const EdgeInsets.symmetric(vertical:16),child:Text('Principal repaid: $preview')),
-      _field(_reference,'Unique repayment reference',required:true,maxLength:100),_error(_error,context),
+      _field(_reference,'Unique repayment reference',required:true,maxLength:100),_errorNotice(_error,context),
       FilledButton(onPressed:_saving?null:() async {
         if(_saving || !_form.currentState!.validate()||wallet==null)return;
         final minor=Money.parseMinor(_amountController.text,wallet.currency)!;
@@ -135,7 +135,7 @@ class _GoalFormState extends ConsumerState<GoalForm> {
       _amount(_target,wallet?.currency??widget.goal?.currency??AppCurrency.usd,'Target amount'),_field(_dateController,'Target date (optional)',date:true),
       DropdownButtonFormField<String>(isExpanded: true, initialValue:_icon,decoration:const InputDecoration(labelText:'Icon'),items:[for(final icon in ['savings','home','travel','education'])DropdownMenuItem(value:icon,child:Text(icon))],onChanged:(v)=>setState(()=>_icon=v!)),
       Wrap(spacing:12,children:[for(final color in [0xFF10B981,0xFF3B82F6,0xFF8B5CF6,0xFFF97316])IconButton(tooltip:'Goal color',icon:Icon(_color==color?Icons.check_circle:Icons.circle,color:Color(color)),onPressed:()=>setState(()=>_color=color))]),
-      _error(_error,context),FilledButton(onPressed:_saving?null:() async {
+      _errorNotice(_error,context),FilledButton(onPressed:_saving?null:() async {
         if(_saving || !_form.currentState!.validate()||wallet==null)return;setState((){_saving=true;_error=null;});
         try {await ref.read(planningRepositoryProvider)!.saveGoal(id:widget.goal?.id,goalName:_name.text,walletId:wallet.id!,targetMinor:Money.parseMinor(_target.text,wallet.currency)!,targetDate:_dateController.text,color:_color,icon:_icon);
           await _finishSaved(context,ref);
@@ -181,7 +181,7 @@ class _RecurringFormState extends ConsumerState<RecurringForm> {
         _field(_start,'Start date',date:true,required:true),_field(_end,'End date (optional)',date:true),
         const Text('Dates follow the device-local calendar. Month-end and leap-day schedules retain their original anchor. A past start date catches up all missed occurrences. Pending occurrences keep their original amount and rate when a rule is edited.'),
         SwitchListTile(contentPadding:EdgeInsets.zero,title:const Text('Automatic ledger recording'),subtitle:const Text('Off: review and confirm each occurrence. On: creates bookkeeping entries on open/resume, never bank payments.'),value:_automatic,onChanged:(v)=>setState(()=>_automatic=v)),
-        _error(_error,context),FilledButton(onPressed:_saving?null:() async {
+        _errorNotice(_error,context),FilledButton(onPressed:_saving?null:() async {
           if(_saving || !_form.currentState!.validate()||wallet==null)return;setState((){_saving=true;_error=null;});
           try {await ref.read(planningRepositoryProvider)!.saveRule(id:widget.rule?.id,ruleName:_name.text,type:_type,amountMinor:Money.parseMinor(_amountController.text,wallet.currency)!,walletId:wallet.id!,categoryId:_category,
             projectId:_projectId,projectRate:_rate.text,frequency:_frequency,startDate:_start.text,endDate:_end.text.isEmpty?null:_end.text,automatic:_automatic);
