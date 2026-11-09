@@ -13,6 +13,7 @@ class MemorySecureStore implements SecureStore {
   @override Future<bool> biometric(bool enroll) async=>allowBiometric;
 }
 void main(){
+  GoogleFonts.config.allowRuntimeFetching = false;
   TestWidgetsFlutterBinding.ensureInitialized();
   tearDown((){AccessGuard.setLocked(false);AccessGuard.maintenance=false;});
   test('salted PIN verifiers differ and no plaintext PIN is stored',() async {
