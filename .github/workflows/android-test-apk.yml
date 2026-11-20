@@ -26,9 +26,10 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: '3.35.6'
           cache: true
       - name: Resolve dependencies
-        run: bash tool/ci_capture.sh 'Dependency resolution' flutter pub get
+        run: bash tool/ci_capture.sh 'Dependency resolution' flutter pub get --enforce-lockfile
       - name: Check SQLite migration and rollback SQL
         run: python3 tool/check_sqlite.py
       - name: Format sources in the build workspace
@@ -60,6 +61,7 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: '3.35.6'
           cache: true
-      - run: bash tool/ci_capture.sh 'Dependency resolution' flutter pub get
+      - run: bash tool/ci_capture.sh 'Dependency resolution' flutter pub get --enforce-lockfile
       - run: bash tool/ci_capture.sh 'Automated tests' bash tool/run_flutter_tests.sh
