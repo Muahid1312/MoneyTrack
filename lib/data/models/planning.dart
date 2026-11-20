@@ -1,3 +1,4 @@
+import '../../features/budgets/domain/wallet_budget.dart';
 import '../../core/constants/currency.dart';
 import '../../features/planning/domain/schedule.dart';
 
@@ -44,6 +45,8 @@ class SavingsGoal {
   AppCurrency get currency => AppCurrency.requireCode(row['currency'] as String);
   String? get targetDate => row['target_date'] as String?;
   String get status => row['status'] as String;
+  bool get emergency => row['emergency'] == 1;
+  int get weeklyMinor => row['weekly_minor'] as int? ?? 0;
   double get progress => allocatedMinor/targetMinor; // Display geometry only.
 }
 class RecurringRule {
@@ -72,7 +75,8 @@ class RecurringOccurrence {
 }
 class PlanningSnapshot {
   const PlanningSnapshot({required this.debts,required this.postings,required this.goals,
-    required this.savingsEvents,required this.rules,required this.occurrences});
+    this.budgets=const [],required this.savingsEvents,required this.rules,required this.occurrences});
+  final List<WalletBudget> budgets;
   final List<Debt> debts;
   final List<DebtPosting> postings;
   final List<SavingsGoal> goals;

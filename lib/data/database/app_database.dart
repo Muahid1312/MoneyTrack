@@ -3,13 +3,14 @@ import 'package:sqflite/sqflite.dart';
 
 import '../../core/constants/currency.dart';
 import 'planning_migration.dart';
+import 'personal_finance_migration.dart';
 import 'documents_migration.dart';
 import 'project_migration.dart';
 
 class AppDatabase {
   AppDatabase._(this.db);
   final Database db;
-  static const schemaVersion = 5;
+  static const schemaVersion = 6;
   static const transactionsTable = 'transactions';
 
   /// sqflite runs onCreate/onUpgrade in a transaction. A failed migration
@@ -27,14 +28,16 @@ class AppDatabase {
         await migrateProjectsV3(db);
         await migratePlanningV4(db);
         await migrateDocumentsV5(db);
+        await migratePersonalFinanceV6(db);
       },
       onOpen: (db) => db.execute('CREATE INDEX IF NOT EXISTS idx_tx_history_order ON transactions(occurred_at DESC,id DESC)'),
       onUpgrade: (db, old, next) async {
-        if (old < 1 || old > 4) throw StateError('Unsupported database version: $old');
+        if (old < 1 || old > 5) throw StateError('Unsupported database version: $old');
         if (old < 2) await _upgradeV2(db, legacyCurrency);
         if (old < 3) await migrateProjectsV3(db);
         if (old < 4) await migratePlanningV4(db);
         if (old < 5) await migrateDocumentsV5(db);
+        if (old < 6) await migratePersonalFinanceV6(db);
       },
     ));
     return AppDatabase._(db);

@@ -34,9 +34,14 @@ class GenerationStore {
       await _point(selected);forcePreferences=true;
     }
     if(!await pointer.exists()){
-      final legacy=await AppDatabase.open(factory:factory,path:legacyPath,legacyCurrency:AppCurrency.fromCode(prefs.getString('currency')));
+      final f = factory ?? databaseFactory;
+      final path = legacyPath ?? p.join(await f.getDatabasesPath(), 'moneytrack.db');
+      final fresh = !await f.databaseExists(path) && !prefs.containsKey('currency');
+      final currency = fresh ? AppCurrency.afn : AppCurrency.fromCode(prefs.getString('currency'));
+      final legacy=await AppDatabase.open(factory:f,path:path,legacyCurrency:currency);
       try {
         final snapshot=await PortableSnapshot.capture(legacy,Directory(p.join(root.path,'legacy-receipts')),prefs);
+        if (fresh) (snapshot['settings'] as Map)['currency'] = currency.code;
         final stage=await prepare(snapshot,restoring:false);await _point(stage.id);
       } finally {await legacy.close();}
     }
@@ -64,7 +69,7 @@ class GenerationStore {
       if(await databaseFile.length()>128*1024*1024)throw StateError('Staging database exceeds the supported limit');
       await _atomic(File(p.join(folder.path,'validated.json')),{'database_sha256':await PortableSnapshot.digestFile(databaseFile),'settings_sha256':await PortableSnapshot.digestFile(File(p.join(folder.path,'settings.json')))});
       final data=snapshot['tables'] as Map;
-      return PreparedGeneration(id,{for(final table in PortableSnapshot.tables)table:(data[table] as List).length});
+      return PreparedGeneration(id,{for(final table in PortableSnapshot.tables)table:(data[table] as List?)?.length ?? 0});
     } catch (_) {await staged?.close();staged=null;if(await folder.exists())await folder.delete(recursive:true);rethrow;}
     finally {await staged?.close();}
   }

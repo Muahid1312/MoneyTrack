@@ -16,6 +16,7 @@ import '../../../data/models/transaction_type.dart';
 import '../../../data/repositories/providers.dart';
 import '../../budgets/application/budget_providers.dart';
 import '../../budgets/domain/budget_calculator.dart';
+import '../../budgets/presentation/wallet_budget_panel.dart';
 import '../../budgets/presentation/budget_editor_sheet.dart';
 import '../../budgets/presentation/budget_screen.dart';
 import '../../budgets/presentation/widgets/budget_widgets.dart';
@@ -136,6 +137,8 @@ class DashboardScreen extends ConsumerWidget {
                   monthLabel: DateFormat('MMM y').format(period),
                 ),
                 const SizedBox(height: AppSpacing.lg),
+
+                const WalletBudgetPanel(),
 
                 // Quick actions
                 Row(

@@ -4,12 +4,14 @@ import 'package:cryptography/cryptography.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:path/path.dart' as p;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:moneytrack/data/database/app_database.dart';
 import 'package:moneytrack/data/storage/portable_snapshot.dart';
 import 'package:moneytrack/data/storage/generation_store.dart';
 import 'package:moneytrack/features/backup/application/backup_codec.dart';
 import 'package:moneytrack/data/repositories/planning_repository.dart';
 import 'support/phase4_fixture.dart';
+import 'package:moneytrack/features/budgets/domain/wallet_budget.dart';
 
 void main(){
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -17,6 +19,11 @@ void main(){
   setUp(() async {f=Phase4Fixture();await f.open();await f.seed();});
   tearDown(() async {await f.close();});
   test('authenticated round-trip preserves every financial table, receipt and sequence',() async {
+    final repo=PlanningRepository(f.database);
+    await repo.saveGoal(id:1,goalName:'Emergency',walletId:1,targetMinor:5000,emergency:true,weeklyMinor:250);
+    await repo.goalEvent(1,-500,'withdrawal',expectedReserved:2000);
+    await repo.saveBudget(WalletBudget(walletId:1,period:BudgetPeriod.weekly,limit:800,
+      start:DateTime(2026,1,5),category:'food',rollover:true));
     final snapshot=await PortableSnapshot.capture(f.database,f.store.receipts,f.prefs);
     final bytes=await BackupCodec.encrypt(snapshot,'correct horse battery staple');
     final decoded=await BackupCodec.decrypt(bytes,'correct horse battery staple');expect(decoded,snapshot);
@@ -28,6 +35,36 @@ void main(){
       expect((await PlanningRepository(db).fetch()).occurrences.length,before);
     }finally{await db.close();await f.store.discard(stage.id);}
   },timeout:const Timeout(Duration(minutes:3)));
+  test('fresh installation selects AFN for the wallet and reporting preference',() async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs=await SharedPreferences.getInstance();
+    final store=GenerationStore(Directory(p.join(f.root.path,'fresh-install')),
+      factory:databaseFactoryFfi,legacyPath:p.join(f.root.path,'fresh.db'));
+    await store.initialize(prefs);
+    final db=await AppDatabase.open(factory:databaseFactoryFfi,path:p.join(store.current.path,'moneytrack.db'));
+    try {
+      expect((await db.db.query('wallets')).single['currency'],'AFN');
+      expect(prefs.getString('currency'),'AFN');
+      expect(await db.db.query('transactions'),isEmpty);
+    } finally {await db.close();}
+  });
+  test('schema 5 backups restore existing savings as ordinary goals',() async {
+    final snapshot=await PortableSnapshot.capture(f.database,f.store.receipts,f.prefs);
+    final legacy=jsonDecode(jsonEncode(snapshot)) as Map<String,dynamic>;
+    legacy['schema']=5;
+    legacy['tables'].remove('wallet_budgets');
+    for(final goal in legacy['tables']['savings_goals']) {
+      goal.remove('weekly_minor');
+      goal.remove('emergency');
+    }
+    final stage=await f.store.prepare(legacy);
+    final copy=await AppDatabase.open(factory:databaseFactoryFfi,path:p.join(f.store.directory(stage.id).path,'moneytrack.db'));
+    try {
+      expect((await copy.db.query('savings_goals')).single['emergency'],0);
+      expect(await copy.db.query('savings_events'),snapshot['tables']['savings_events']);
+      expect(await copy.db.query('wallet_budgets'),isEmpty);
+    }finally {await copy.close();await f.store.discard(stage.id);}
+  });
   test('wrong passphrase and modified ciphertext never produce a restore stage',() async {
     final snapshot=await PortableSnapshot.capture(f.database,f.store.receipts,f.prefs);
     final bytes=await BackupCodec.encrypt(snapshot,'a strong backup passphrase');

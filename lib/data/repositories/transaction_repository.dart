@@ -108,6 +108,7 @@ class SqfliteTransactionRepository implements TransactionRepository {
   @override
   Future<void> clear() => _database.db.transaction((txn) async {
     AccessGuard.writable();
+    await txn.delete('wallet_budgets');
     await txn.delete('savings_events');
     await txn.delete('debt_postings');
     await txn.delete('project_allocations');

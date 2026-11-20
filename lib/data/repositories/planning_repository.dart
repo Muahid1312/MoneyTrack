@@ -9,6 +9,7 @@ import '../../features/planning/domain/schedule.dart';
 import '../../features/wallets/domain/exchange_rate.dart';
 import '../database/app_database.dart';
 import '../models/planning.dart';
+import '../../features/budgets/domain/wallet_budget.dart';
 import '../models/transaction.dart';
 import '../models/transaction_type.dart';
 import 'transaction_repository.dart';
@@ -20,6 +21,7 @@ class PlanningRepository {
     final postings=(await txn.query('debt_postings',orderBy:'occurred_at DESC,id DESC')).map(DebtPosting.new).toList();
     final events=await txn.query('savings_events',orderBy:'occurred_at DESC,id DESC');
     return PlanningSnapshot(
+      budgets:(await txn.query('wallet_budgets',orderBy:'id')).map(WalletBudget.fromRow).toList(),
       debts:(await txn.query('debts',orderBy:'created_at DESC,id DESC')).map((d)=>Debt(d,
         postings.where((p)=>p.debtId==d['id'] && !p.origin && !p.voided).fold<int>(0,(s,p)=>s+p.principalMinor))).toList(),
       postings:postings, savingsEvents:events,
@@ -28,6 +30,22 @@ class PlanningRepository {
       rules:(await txn.query('recurring_rules',orderBy:'next_date,id')).map(RecurringRule.new).toList(),
       occurrences:(await txn.query('recurring_occurrences',orderBy:'due_date,id')).map(RecurringOccurrence.new).toList());
   });
+  Future<void> saveBudget(WalletBudget budget) => database.db.transaction((txn) async {
+    AccessGuard.writable();
+    budget.validate();
+    await _wallet(txn,budget.walletId);
+    if (budget.id == null) {
+      await txn.insert('wallet_budgets',budget.toRow());
+    } else if (await txn.update('wallet_budgets',budget.toRow(),where:'id=? AND wallet_id=?',
+        whereArgs:[budget.id,budget.walletId]) != 1) {
+      throw StateError('Budget no longer exists');
+    }
+  });
+
+  Future<void> removeBudget(int id) async {
+    AccessGuard.writable();
+    await database.db.delete('wallet_budgets',where:'id=?',whereArgs:[id]);
+  }
   static void amount(int value) { if(value<=0 || value>AppInfo.maxAmountMinor) throw ArgumentError('Enter a valid positive amount'); }
   static String name(String value) { final text=value.trim(); if(text.isEmpty || text.length>100) throw ArgumentError('Enter 1–100 characters'); return text; }
   static String? date(String? value) { if(value==null || value.isEmpty)return null; CivilSchedule.parse(value); return value; }
@@ -65,10 +83,11 @@ class PlanningRepository {
     if(await database.db.update('debt_postings',{'voided':1},where:"id=? AND kind='repayment' AND voided=0",whereArgs:[id])!=1)throw StateError('Repayment not found');
   }
   Future<int> saveGoal({int? id,required String goalName,required int walletId,required int targetMinor,
-    String? targetDate,int color=0xFF10B981,String icon='savings'}) => database.db.transaction((txn) async {
+    String? targetDate,int color=0xFF10B981,String icon='savings',bool emergency=false,int weeklyMinor=0}) => database.db.transaction((txn) async {
     AccessGuard.writable();
     amount(targetMinor); final wallet=await _wallet(txn,walletId);
     final map=<String,Object?>{'name':name(goalName),'wallet_id':walletId,'currency':wallet['currency'],
+      'emergency':emergency?1:0,'weekly_minor':emergency?weeklyMinor:0,
       'target_minor':targetMinor,'target_date':date(targetDate),'color':color,'icon':icon};
     if(id==null) { map['created_at']=DateTime.now().millisecondsSinceEpoch;return txn.insert('savings_goals',map); }
     final totals=await txn.rawQuery('SELECT COALESCE(SUM(delta_minor),0) AS n FROM savings_events WHERE goal_id=?',[id]);
@@ -76,9 +95,13 @@ class PlanningRepository {
     if(old.single['status']=='completed' && (totals.single['n'] as int)<targetMinor)map['status']='active';
     await txn.update('savings_goals',map,where:'id=?',whereArgs:[id]);return id;
   });
-  Future<void> goalEvent(int goalId,int deltaMinor,String reference) => database.db.transaction((txn) async {
+  Future<void> goalEvent(int goalId,int deltaMinor,String reference,{int? expectedReserved}) => database.db.transaction((txn) async {
     AccessGuard.writable();
     amount(deltaMinor.abs());
+    if(expectedReserved!=null){
+      final row=(await txn.rawQuery('SELECT COALESCE(SUM(delta_minor),0) AS reserved FROM savings_events WHERE goal_id=?',[goalId])).single;
+      if(row['reserved']!=expectedReserved)throw StateError('Savings changed. Review the withdrawal again.');
+    }
     await txn.insert('savings_events',{'goal_id':goalId,'delta_minor':deltaMinor,'reference':name(reference),
       'occurred_at':DateTime.now().millisecondsSinceEpoch});
     final goal=(await txn.query('savings_goals',where:'id=?',whereArgs:[goalId])).single;

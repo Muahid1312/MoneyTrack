@@ -17,6 +17,7 @@ import '../../settings/application/settings_controller.dart';
 import '../application/budget_providers.dart';
 import '../domain/budget_calculator.dart';
 import 'budget_editor_sheet.dart';
+import 'wallet_budget_panel.dart';
 import 'widgets/budget_widgets.dart';
 
 class BudgetScreen extends ConsumerWidget {
@@ -47,6 +48,9 @@ class BudgetScreen extends ConsumerWidget {
         leadingWidth: 64,
         title: const Text('Budget'),
         actions: [
+          IconButton(tooltip: 'Wallet budgets', icon: const Icon(Icons.account_balance_wallet_outlined),
+            onPressed: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) =>
+              Scaffold(appBar: AppBar(title: const Text('Wallet budgets')), body: ListView(children: const [WalletBudgetPanel()]))))),
           if (status.hasBudget)
             Padding(
               padding: const EdgeInsets.only(right: 12),

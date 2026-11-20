@@ -10,9 +10,10 @@ import '../../core/constants/currency.dart';
 import '../../features/planning/domain/schedule.dart';
 import '../../features/wallets/domain/exchange_rate.dart';
 import '../database/app_database.dart';
+import '../../features/budgets/domain/wallet_budget.dart';
 
 abstract final class PortableSnapshot {
-  static const tables=['wallets','projects','project_categories','debts','savings_goals','recurring_rules','transactions','transfers','project_allocations','debt_postings','savings_events','recurring_occurrences','attachments'];
+  static const tables=['wallets','projects','project_categories','debts','savings_goals','recurring_rules','transactions','transfers','project_allocations','debt_postings','savings_events','recurring_occurrences','attachments','wallet_budgets'];
   static const preferenceKeys=['theme_mode','currency','monthly_budget_minor','user_name','hide_balance','local_reminders',
     'budget_AFN','budget_USD','budget_EUR','budget_PKR','budget_JPY','budget_KWD'];
   static const maxBytes=32*1024*1024;
@@ -77,8 +78,15 @@ abstract final class PortableSnapshot {
       'settings':preferences(prefs),'files':files};
   });
   static Future<void> populate(AppDatabase database,Directory receipts,Map<String,dynamic> snapshot) async {
-    if(snapshot['schema']!=AppDatabase.schemaVersion)throw const FormatException('Unsupported database version');
+    final legacy = snapshot['schema'] == 5;
+    if(!legacy && snapshot['schema']!=AppDatabase.schemaVersion)throw const FormatException('Unsupported database version');
     final data=Map<String,dynamic>.from(snapshot['tables'] as Map);
+    if (legacy) {
+      if (data.containsKey('wallet_budgets')) throw const FormatException('Unexpected legacy budget table');
+      data['wallet_budgets'] = [];
+      data['savings_goals'] = [for (final goal in data['savings_goals'] as List)
+        {...Map<String, dynamic>.from(goal as Map), 'emergency': 0, 'weekly_minor': 0}];
+    }
     if(data.keys.toSet().difference(tables.toSet()).isNotEmpty||tables.any((t)=>!data.containsKey(t)))throw const FormatException('Unexpected database tables');
     validatePreferences(Map<String,dynamic>.from(snapshot['settings'] as Map));
     await receipts.create(recursive:true);
@@ -131,6 +139,7 @@ abstract final class PortableSnapshot {
     await reject("SELECT t.id FROM transactions t WHERE t.amount_minor>99999999999 OR t.wallet_id IS NULL OR NOT EXISTS(SELECT 1 FROM wallets w WHERE w.id=t.wallet_id AND w.currency=t.currency)");
     await reject("SELECT id FROM debts d WHERE (SELECT COUNT(*) FROM debt_postings p WHERE p.debt_id=d.id AND kind='origin' AND voided=0)!=1 OR principal_minor<COALESCE((SELECT SUM(principal_minor) FROM debt_postings p WHERE p.debt_id=d.id AND kind='repayment' AND voided=0),0)");
     await reject("SELECT id FROM savings_goals g WHERE COALESCE((SELECT SUM(delta_minor) FROM savings_events WHERE goal_id=g.id),0)<0 OR NOT EXISTS(SELECT 1 FROM wallets w WHERE w.id=g.wallet_id AND w.currency=g.currency) OR (status='completed' AND target_minor>COALESCE((SELECT SUM(delta_minor) FROM savings_events WHERE goal_id=g.id),0))");
+    for (final row in await db.query('wallet_budgets')) { WalletBudget.fromRow(row).validate(); }
     final wallets={for(final row in await db.query('wallets'))row['id']:row};
     final projects={for(final row in await db.query('projects'))row['id']:row};
     for(final row in await db.query('projects')){AppCurrency.requireCode(row['currency'] as String);}

@@ -122,22 +122,30 @@ class GoalForm extends ConsumerStatefulWidget {
 }
 class _GoalFormState extends ConsumerState<GoalForm> {
   final _form=GlobalKey<FormState>();late final TextEditingController _name,_target,_dateController;int? _walletId;int _color=0xFF10B981;String _icon='savings';
+  late final TextEditingController _weekly;
+  bool _emergency=false;
   bool _saving=false;String? _error;
   @override
-  void initState(){super.initState();final g=widget.goal;_walletId=g?.walletId;_name=TextEditingController(text:g?.name??'');_target=TextEditingController(text:g==null?'':Money.plain(g.targetMinor,g.currency));_dateController=TextEditingController(text:g?.targetDate??'');_color=g?.row['color'] as int? ??_color;_icon=g?.row['icon'] as String? ??_icon;}
+  void initState(){super.initState();final g=widget.goal;_emergency=g?.emergency??false;
+    _weekly=TextEditingController(text:g==null||g.weeklyMinor==0?'':Money.plain(g.weeklyMinor,g.currency));
+    _walletId=g?.walletId;_name=TextEditingController(text:g?.name??'');_target=TextEditingController(text:g==null?'':Money.plain(g.targetMinor,g.currency));_dateController=TextEditingController(text:g?.targetDate??'');_color=g?.row['color'] as int? ??_color;_icon=g?.row['icon'] as String? ??_icon;}
   @override
-  void dispose(){_name.dispose();_target.dispose();_dateController.dispose();super.dispose();}
+  void dispose(){_weekly.dispose();_name.dispose();_target.dispose();_dateController.dispose();super.dispose();}
   @override
   Widget build(BuildContext context){final wallets=_wallets(ref),wallet=_selected(wallets,_walletId);return Scaffold(appBar:AppBar(title:Text(widget.goal==null?'New savings goal':'Edit savings goal')),
     body:Form(key:_form,child:ListView(padding:const EdgeInsets.all(24),children:[
-      _field(_name,'Goal name',required:true,maxLength:100),_walletPicker(wallets,wallet,widget.goal!=null||_saving?null:(id)=>setState((){_walletId=id;_target.clear();})),
+      _field(_name,'Goal name',required:true,maxLength:100),_walletPicker(wallets,wallet,widget.goal!=null||_saving?null:(id)=>setState((){_walletId=id;_target.clear();_weekly.clear();})),
       const Text('Reserve funds inside this wallet. The wallet and currency stay fixed after creation.'),
       _amount(_target,wallet?.currency??widget.goal?.currency??AppCurrency.usd,'Target amount'),_field(_dateController,'Target date (optional)',date:true),
+      SwitchListTile(title:const Text('Emergency fund'),value:_emergency,onChanged:(v)=>setState(()=>_emergency=v)),
+      if(_emergency)TextFormField(controller:_weekly,keyboardType:const TextInputType.numberWithOptions(decimal:true),
+        decoration:InputDecoration(labelText:'Planned weekly replenishment (${wallet?.currency.code??''})',helperText:'Optional. Contributions are recorded manually.'),
+        validator:(v)=>(v??'').isEmpty || Money.parseMinor(v!,wallet!.currency)!=null?null:'Enter a valid amount'),
       DropdownButtonFormField<String>(isExpanded: true, initialValue:_icon,decoration:const InputDecoration(labelText:'Icon'),items:[for(final icon in ['savings','home','travel','education'])DropdownMenuItem(value:icon,child:Text(icon))],onChanged:(v)=>setState(()=>_icon=v!)),
       Wrap(spacing:12,children:[for(final color in [0xFF10B981,0xFF3B82F6,0xFF8B5CF6,0xFFF97316])IconButton(tooltip:'Goal color',icon:Icon(_color==color?Icons.check_circle:Icons.circle,color:Color(color)),onPressed:()=>setState(()=>_color=color))]),
       _errorNotice(_error,context),FilledButton(onPressed:_saving?null:() async {
         if(_saving || !_form.currentState!.validate()||wallet==null)return;setState((){_saving=true;_error=null;});
-        try {await ref.read(planningRepositoryProvider)!.saveGoal(id:widget.goal?.id,goalName:_name.text,walletId:wallet.id!,targetMinor:Money.parseMinor(_target.text,wallet.currency)!,targetDate:_dateController.text,color:_color,icon:_icon);
+        try {await ref.read(planningRepositoryProvider)!.saveGoal(id:widget.goal?.id,goalName:_name.text,walletId:wallet.id!,targetMinor:Money.parseMinor(_target.text,wallet.currency)!,targetDate:_dateController.text,color:_color,icon:_icon,emergency:_emergency,weeklyMinor:Money.parseMinor(_weekly.text,wallet.currency)??0);
           await _finishSaved(context,ref);
         } catch (_) {if(mounted)setState((){_saving=false;_error='Could not save. Check the active wallet, target and date.';});}
       },child:Text(_saving?'Saving…':'Save goal'))

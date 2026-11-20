@@ -92,7 +92,7 @@ class _WalletEditorState extends ConsumerState<WalletEditorScreen> {
     super.initState();
     final w = widget.wallet;
     _name = TextEditingController(text: w?.name ?? '');
-    _currency = w?.currency ?? AppCurrency.usd;
+    _currency = w?.currency ?? ref.read(walletsProvider).valueOrNull?.wallets.firstOrNull?.currency ?? AppCurrency.afn;
     _opening = TextEditingController(text: Money.plain(w?.openingMinor ?? 0, _currency));
     _type = w?.type ?? WalletType.cash;
     _archived = w?.archived ?? false;

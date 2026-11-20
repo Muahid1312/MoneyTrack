@@ -12,7 +12,7 @@ import 'package:moneytrack/features/wallets/application/wallet_providers.dart';
 
 void main(){
   testWidgets('savings UI distinguishes reservations from wallet money', (tester) async {
-    final data=PlanningSnapshot(debts:const[],postings:const[],goals:[SavingsGoal({'id':1,'name':'Emergency fund','wallet_id':1,'currency':'USD','target_minor':10000,'target_date':null,'status':'active','color':0xFF10B981,'icon':'savings'},4000)],savingsEvents:const[],rules:const[],occurrences:const[]);
+    final data=PlanningSnapshot(debts:const[],postings:const[],goals:[SavingsGoal({'id':1,'name':'Emergency fund','emergency':1,'weekly_minor':500,'wallet_id':1,'currency':'USD','target_minor':10000,'target_date':null,'status':'active','color':0xFF10B981,'icon':'savings'},4000)],savingsEvents:const[],rules:const[],occurrences:const[]);
     const wallet=Wallet(id:1,name:'Cash',type:WalletType.cash,currency:AppCurrency.usd);
     await tester.pumpWidget(ProviderScope(overrides:[planningProvider.overrideWith((ref) async=>data),
       walletsProvider.overrideWith((ref) async=>const WalletSnapshot([wallet],{1:10000},[],reserved:{1:4000}))],child:const MaterialApp(home:GoalsScreen())));
@@ -20,6 +20,14 @@ void main(){
     expect(find.text(r'$40.00 reserved'),findsOneWidget);expect(find.text(r'Wallet cash: $100.00'),findsOneWidget);
     expect(find.text(r'Available wallet cash: $60.00'),findsOneWidget);
     expect(find.text('Allocations stay inside this wallet and do not increase net worth.'),findsOneWidget);
+    expect(find.text(r'Emergency fund · Weekly plan: $5.00'),findsOneWidget);
+    await tester.ensureVisible(find.text('Withdraw'));
+    await tester.tap(find.text('Withdraw'));await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextFormField),'10.00');
+    await tester.tap(find.text('Review withdrawal'));await tester.pumpAndSettle();
+    expect(find.textContaining(r'The fund will have $30.00 left.'),findsOneWidget);
+    await tester.tap(find.text('Cancel'));await tester.pumpAndSettle();
+    expect(find.text(r'$40.00 reserved'),findsOneWidget);
   });
   testWidgets('debt creation requires contact and a real principal reference',(tester) async {
     const wallet=Wallet(id:1,name:'Cash',type:WalletType.cash,currency:AppCurrency.usd);

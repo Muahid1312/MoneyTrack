@@ -135,7 +135,7 @@ class GoalsScreen extends ConsumerWidget {
       if(data?.goals.isEmpty??true)const Padding(padding:EdgeInsets.all(24),child:Text('No savings goals yet.')),
       for(final g in data?.goals??<SavingsGoal>[])Card(child:ListTile(leading:Icon(const {'savings':Icons.savings_outlined,'home':Icons.home_outlined,'travel':Icons.flight_outlined,'education':Icons.school_outlined}[g.row['icon']]??Icons.savings_outlined,color:Color(g.row['color'] as int)),
         title:Text(g.name),subtitle:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-          Text('${g.status} · ${g.currency.code}${g.targetDate==null?'':' · Due ${g.targetDate}'}'),
+          Text('${g.emergency?'Emergency fund · ':''}${g.status} · ${g.currency.code}${g.targetDate==null?'':' · Due ${g.targetDate}'}'),
           LinearProgressIndicator(value:g.progress.clamp(0.0,1.0).toDouble()),
           Text('${Money.format(g.allocatedMinor,g.currency)} / ${Money.format(g.targetMinor,g.currency)}')]),
         onTap:()=>Navigator.push(context,MaterialPageRoute<void>(builder:(_)=>GoalDetailScreen(id:g.id)))))
@@ -144,15 +144,34 @@ class GoalsScreen extends ConsumerWidget {
 class GoalDetailScreen extends ConsumerWidget {
   const GoalDetailScreen({super.key,required this.id});final int id;
   Future<void> _move(BuildContext context,WidgetRef ref,SavingsGoal goal,bool withdraw) async {
-    final controller=TextEditingController();final form=GlobalKey<FormState>();
+    final form=GlobalKey<FormState>();
+    var input='';
     final reference='goal-${DateTime.now().microsecondsSinceEpoch}';
-    final result=await showDialog<bool>(context:context,builder:(ctx)=>AlertDialog(title:Text(withdraw?'Withdraw reservation':'Reserve savings'),
-      content:Form(key:form,child:TextFormField(controller:controller,keyboardType:const TextInputType.numberWithOptions(decimal:true),
-        decoration:InputDecoration(labelText:'Amount (${goal.currency.code})',helperText:withdraw?'Releases reserved funds. No income is recorded.':'Reserves available wallet funds. No expense is recorded.',helperMaxLines:2),
-        validator:(v)=>(Money.parseMinor(v??'',goal.currency)??0)>0?null:'Enter a positive amount')),
-      actions:[TextButton(onPressed:()=>Navigator.pop(ctx,false),child:const Text('Cancel')),FilledButton(onPressed:(){if(form.currentState!.validate())Navigator.pop(ctx,true);},child:Text(withdraw?'Withdraw':'Reserve'))]));
-    if(result==true && context.mounted)await planningAction(context,ref,()=>ref.read(planningRepositoryProvider)!.goalEvent(id,Money.parseMinor(controller.text,goal.currency)!*(withdraw?-1:1),reference));
-    controller.dispose();
+    final amount=await showDialog<int>(context:context,builder:(ctx)=>AlertDialog(
+      title:Text(withdraw?'Withdraw reservation':'Reserve savings'),
+      content:Form(key:form,child:TextFormField(onChanged:(v)=>input=v,
+        keyboardType:const TextInputType.numberWithOptions(decimal:true),
+        decoration:InputDecoration(labelText:'Amount (${goal.currency.code})'),
+        validator:(v){
+          final value=Money.parseMinor(v??'',goal.currency);
+          if(value==null || value<=0)return 'Enter a positive amount';
+          if(withdraw && value>goal.allocatedMinor)return 'Exceeds reserved savings';
+          return null;
+        })),
+      actions:[TextButton(onPressed:()=>Navigator.pop(ctx),child:const Text('Cancel')),
+        FilledButton(onPressed:(){if(form.currentState!.validate())Navigator.pop(ctx,Money.parseMinor(input,goal.currency));},
+          child:Text(withdraw?'Review withdrawal':'Reserve'))]));
+    if(amount==null || !context.mounted)return;
+    if(withdraw){
+      final confirmed=await showDialog<bool>(context:context,builder:(ctx)=>AlertDialog(
+        title:const Text('Confirm withdrawal'),
+        content:Text('Release ${Money.format(amount,goal.currency)} from ${goal.name}? The fund will have ${Money.format(goal.allocatedMinor-amount,goal.currency)} left.'),
+        actions:[TextButton(onPressed:()=>Navigator.pop(ctx,false),child:const Text('Cancel')),
+          FilledButton(onPressed:()=>Navigator.pop(ctx,true),child:const Text('Confirm withdrawal'))]));
+      if(confirmed!=true || !context.mounted)return;
+    }
+    await planningAction(context,ref,()=>ref.read(planningRepositoryProvider)!.goalEvent(
+      id,withdraw?-amount:amount,reference,expectedReserved:withdraw?goal.allocatedMinor:null));
   }
   @override
   Widget build(BuildContext context,WidgetRef ref)=>ref.watch(planningProvider).when(loading:()=>Scaffold(appBar:AppBar(),body:const Center(child:CircularProgressIndicator())),
@@ -162,6 +181,7 @@ class GoalDetailScreen extends ConsumerWidget {
       return Scaffold(appBar:AppBar(title:Text(g.name),actions:[IconButton(tooltip:'Edit goal',icon:const Icon(Icons.edit_outlined),
         onPressed:()=>Navigator.push(context,MaterialPageRoute<void>(builder:(_)=>GoalForm(goal:g))))]),body:ListView(padding:const EdgeInsets.all(24),children:[
           Text('${Money.format(g.allocatedMinor,g.currency)} reserved',style:Theme.of(context).textTheme.headlineSmall),
+          if(g.emergency) Text('Emergency fund · Weekly plan: ${Money.format(g.weeklyMinor,g.currency)}'),
           Text('Target ${Money.format(g.targetMinor,g.currency)} · ${g.status}'),
           LinearProgressIndicator(value:g.progress.clamp(0.0,1.0).toDouble()),Text('${(g.progress*100).toStringAsFixed(1)}% funded'),
           if(g.targetDate!=null)Text('Target date ${g.targetDate}'),

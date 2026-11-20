@@ -10,11 +10,11 @@ DB_SOURCE = (ROOT / 'lib/data/database/app_database.dart').read_text()
 LEGACY = re.search(r"_createLegacy\(Database db\) => db.execute\('\'\'(.*?)'\'\'\);", DB_SOURCE, re.S).group(1)
 V2 = DB_SOURCE[DB_SOURCE.index('static Future<void> _upgradeV2'):]
 MIGRATIONS = [V2] + [(ROOT / ('lib/data/database/' + name)).read_text() for name in
-    ['project_migration.dart', 'planning_migration.dart', 'documents_migration.dart']]
+    ['project_migration.dart', 'planning_migration.dart', 'documents_migration.dart', 'personal_finance_migration.dart']]
 
 
 def execute(db, source):
-    statements = re.findall(r"await db.execute\(('\'\'.*?'\'\'|'(?:\\.|[^'\\])*')\);", source, re.S)
+    statements = re.findall(r"await db.execute\(\s*('\'\'.*?'\'\'|'(?:\\.|[^'\\])*'),?\s*\);", source, re.S)
     for index, raw in enumerate(statements):
         sql = raw[3:-3] if raw.startswith("'" * 3) else raw[1:-1].replace("\\'", "'")
         sql = sql.replace('${currency.code}', 'USD')
@@ -37,7 +37,7 @@ def fresh():
 
 
 # Upgrade fixtures from every prior schema version. Preserve a populated ledger.
-for old in [1, 2, 3, 4]:
+for old in [1, 2, 3, 4, 5]:
     db = sqlite3.connect(':memory:')
     db.execute('PRAGMA foreign_keys=ON')
     db.execute(LEGACY)
@@ -47,17 +47,29 @@ for old in [1, 2, 3, 4]:
         db.execute("INSERT INTO transactions VALUES(17,'income',700,'salary','Keep me',100,100,100)")
     else:
         db.execute("INSERT INTO transactions(id,type,amount_minor,category_id,note,occurred_at,created_at,updated_at,wallet_id,currency) VALUES(17,'income',700,'salary','Keep me',100,100,100,1,'USD')")
+    if old == 5:
+        db.execute("INSERT INTO wallets VALUES(9,'Afghan cash','cash','AFN',2000000,0)")
+        db.execute("INSERT INTO savings_goals(id,name,wallet_id,currency,target_minor,created_at) VALUES(7,'Rainy day',9,'AFN',1000000,100)")
+        db.execute("INSERT INTO savings_events VALUES(31,7,500000,'Saved',100)")
+        before = db.execute('SELECT * FROM wallet_positions ORDER BY id').fetchall()
+        transactions = db.execute('SELECT * FROM transactions ORDER BY id').fetchall()
     db.commit()
     db.execute('BEGIN')
     for migration in MIGRATIONS[old - 1:]:
         execute(db, migration)
-    db.execute('PRAGMA user_version=5')
+    db.execute('PRAGMA user_version=6')
     db.commit()
     assert db.execute('SELECT id,amount_minor,note FROM transactions').fetchall() == [(17, 700, 'Keep me')]
     assert db.execute('SELECT balance FROM wallet_positions WHERE id=1').fetchone() == (700,)
     assert db.execute('PRAGMA foreign_key_check').fetchall() == []
+    if old == 5:
+        assert db.execute('SELECT * FROM wallet_positions ORDER BY id').fetchall() == before
+        assert db.execute('SELECT * FROM transactions ORDER BY id').fetchall() == transactions
+        assert db.execute('SELECT currency FROM wallets ORDER BY id').fetchall() == [('USD',), ('AFN',)]
+        assert db.execute('SELECT id,emergency,weekly_minor FROM savings_goals').fetchall() == [(7,0,0)]
+        assert db.execute('SELECT id,delta_minor FROM savings_events').fetchall() == [(31,500000)]
     db.close()
-print('PASS: populated schema 1/2/3/4 → 5 SQL upgrade fixtures.')
+print('PASS: populated schema 1/2/3/4/5 → 6 SQL upgrade fixtures.')
 
 db = fresh()
 checks=0

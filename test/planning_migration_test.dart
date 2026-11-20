@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:moneytrack/data/database/app_database.dart';
 import 'package:moneytrack/data/database/project_migration.dart';
+import 'package:moneytrack/data/database/planning_migration.dart';
+import 'package:moneytrack/data/database/documents_migration.dart';
 import 'package:moneytrack/data/repositories/project_repository.dart';
 import 'package:moneytrack/data/repositories/wallet_repository.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -41,6 +43,35 @@ void main(){
       expect(await db.db.query('debts'),isEmpty);expect(await db.db.query('savings_goals'),isEmpty);expect(await db.db.query('recurring_rules'),isEmpty);
       expect(await db.db.rawQuery('PRAGMA foreign_key_check'),isEmpty);
     } finally {await db.close();await dir.delete(recursive:true);}
+  });
+  test('MoneyTrack 2.0 upgrade preserves populated wallet balances, reservations and transaction IDs',() async {
+    final dir=await Directory.systemTemp.createTemp('moneytrack-2-to-3-');
+    final path='${dir.path}/moneytrack.db';
+    try {
+      await legacy(path);
+      final old=await databaseFactoryFfi.openDatabase(path,options:OpenDatabaseOptions(
+        version:5,onUpgrade:(db,_,__) async {
+          await migratePlanningV4(db);
+          await migrateDocumentsV5(db);
+        }));
+      await old.insert('wallets',{'id':3,'name':'Afghan cash','type':'cash','currency':'AFN','opening_minor':2000000});
+      await old.insert('savings_goals',{'id':11,'name':'Rainy day','wallet_id':3,'currency':'AFN','target_minor':750000,'created_at':10});
+      await old.insert('savings_events',{'id':13,'goal_id':11,'delta_minor':500000,'reference':'Saved','occurred_at':11});
+      final positions=await old.query('wallet_positions',orderBy:'id');
+      final txs=await old.query('transactions',orderBy:'id');
+      final wallets=await old.query('wallets',orderBy:'id');
+      await old.close();
+      final upgraded=await AppDatabase.open(factory:databaseFactoryFfi,path:path);
+      try {
+        expect(await upgraded.db.getVersion(),6);
+        expect(await upgraded.db.query('wallet_positions',orderBy:'id'),positions);
+        expect(await upgraded.db.query('wallets',orderBy:'id'),wallets);
+        expect(await upgraded.db.query('transactions',orderBy:'id'),txs);
+        expect(txs.single['id'],17);
+        expect((await upgraded.db.query('savings_goals')).single['emergency'],0);
+        expect((await upgraded.db.query('savings_events')).single['id'],13);
+      } finally {await upgraded.close();}
+    } finally {await dir.delete(recursive:true);}
   });
   test('late migration failure rolls back v4 tables and preserves v3 financial history',() async {
     final dir=await Directory.systemTemp.createTemp('v4-fail-');final path='${dir.path}/legacy.db';await legacy(path,conflict:true);

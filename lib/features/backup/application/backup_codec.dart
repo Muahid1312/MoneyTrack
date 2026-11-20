@@ -26,7 +26,7 @@ abstract final class BackupCodec {
     final length=ByteData.sublistView(Uint8List.fromList(bytes.sublist(8,12))).getUint32(0,Endian.big);
     if(length<1||length>4096||12+length+16>=bytes.length)throw const FormatException('Invalid header');
     final info=Map<String,dynamic>.from(jsonDecode(utf8.decode(bytes.sublist(12,12+length))) as Map);
-    if(info['format']!='moneytrack-backup'||info['version']!=1||info['schema']!=AppDatabase.schemaVersion||info['cipher']!='AES-256-GCM'||info['kdf']!='argon2id'||info['memory']!=65536||info['iterations']!=3||info['parallelism']!=1)throw const FormatException('Unsupported backup parameters');
+    if(info['format']!='moneytrack-backup'||info['version']!=1||![5,AppDatabase.schemaVersion].contains(info['schema'])||info['cipher']!='AES-256-GCM'||info['kdf']!='argon2id'||info['memory']!=65536||info['iterations']!=3||info['parallelism']!=1)throw const FormatException('Unsupported backup parameters');
     return info;
   }
   static Future<Map<String,dynamic>> decrypt(List<int> bytes,String passphrase) async {
@@ -34,7 +34,7 @@ abstract final class BackupCodec {
     final length=ByteData.sublistView(Uint8List.fromList(bytes.sublist(8,12))).getUint32(0,Endian.big);
     if(length<1||length>4096||12+length+16>=bytes.length)throw const FormatException('Invalid backup header');
     final header=bytes.sublist(12,12+length);final info=jsonDecode(utf8.decode(header)) as Map;
-    if(info['format']!='moneytrack-backup'||info['version']!=1||info['schema']!=AppDatabase.schemaVersion||info['cipher']!='AES-256-GCM'||info['kdf']!='argon2id'||info['memory']!=65536||info['iterations']!=3||info['parallelism']!=1)throw const FormatException('Unsupported backup version or KDF parameters');
+    if(info['format']!='moneytrack-backup'||info['version']!=1||![5,AppDatabase.schemaVersion].contains(info['schema'])||info['cipher']!='AES-256-GCM'||info['kdf']!='argon2id'||info['memory']!=65536||info['iterations']!=3||info['parallelism']!=1)throw const FormatException('Unsupported backup version or KDF parameters');
     final salt=base64Decode(info['salt'] as String),nonce=base64Decode(info['nonce'] as String);
     if(salt.length!=32||nonce.length!=12||utf8.encode(passphrase).length>1024)throw const FormatException('Invalid backup metadata');
     final derived=await SecureCrypto.derive(passphrase,salt,memory:65536,iterations:3);final key=SecretKeyData(derived,overwriteWhenDestroyed:true);
