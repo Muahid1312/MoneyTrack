@@ -24,12 +24,13 @@ abstract final class TransactionActions {
     WidgetRef ref, {
     TransactionModel? existing,
     TransactionType? initialType,
+    AppCurrency? preferredCurrency,
     int? initialProjectId,
     bool initialClientReceipt = false,
     Future<void> Function(TransactionModel tx)? animateOut,
   }) async {
     final result = await Navigator.of(context).push(
-        TransactionEditorScreen.route(existing: existing, initialType: initialType, initialProjectId: initialProjectId, initialClientReceipt: initialClientReceipt));
+        TransactionEditorScreen.route(existing: existing, initialType: initialType, preferredCurrency: preferredCurrency, initialProjectId: initialProjectId, initialClientReceipt: initialClientReceipt));
     if (result == EditorResult.deleted && existing?.id != null && context.mounted) {
       if (animateOut != null) await animateOut(existing!);
       if (context.mounted) await deleteWithUndo(context, ref, existing!);

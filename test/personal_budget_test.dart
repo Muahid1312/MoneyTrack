@@ -101,10 +101,10 @@ void main() {
         findsOneWidget,
       );
       expect(
-        find.textContaining('Available cash   15,000.00 ؋'),
+        find.text('15,000.00 ؋'),
         findsOneWidget,
       );
-      expect(find.textContaining('Remaining 800.00 ؋'), findsOneWidget);
+      expect(find.text('800.00 ؋ left'), findsOneWidget);
     },
   );
   test(

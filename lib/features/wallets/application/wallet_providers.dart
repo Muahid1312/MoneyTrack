@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/currency.dart';
 import '../../../data/models/transaction.dart';
+import '../../../data/models/wallet.dart';
 import '../../../data/repositories/wallet_repository.dart';
 import '../../settings/application/settings_controller.dart';
 import '../../transactions/application/transactions_controller.dart';
@@ -11,6 +12,14 @@ final walletRepositoryProvider = Provider<WalletRepository?>((ref) => null);
 final walletsProvider = FutureProvider<WalletSnapshot?>((ref) async {
   ref.watch(transactionsProvider);
   return ref.watch(walletRepositoryProvider)?.fetch();
+});
+
+// The wallet the user is working in during this session.
+final selectedWalletIdProvider = StateProvider<int?>((ref) => null);
+final selectedWalletProvider = Provider<Wallet?>((ref) {
+  final id = ref.watch(selectedWalletIdProvider);
+  final active = ref.watch(walletsProvider).valueOrNull?.wallets.where((w) => !w.archived);
+  return active?.where((w) => w.id == id).firstOrNull ?? active?.firstOrNull;
 });
 
 /// Existing reports are explicitly scoped to a single original currency.

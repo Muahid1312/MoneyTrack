@@ -2,6 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/utils/date_utils.dart';
+import '../../../core/constants/currency.dart';
+import '../../settings/application/settings_controller.dart';
+import 'transactions_controller.dart';
 import '../../../data/models/transaction.dart';
 import '../../../data/models/transaction_type.dart';
 import '../../../data/repositories/providers.dart';
@@ -101,8 +104,16 @@ class FilteredTransactions {
   final int count;
 }
 
+final activityCurrencyChoiceProvider = StateProvider<AppCurrency?>((ref) => null);
+final activityCurrencyProvider = Provider<AppCurrency>((ref) =>
+    ref.watch(activityCurrencyChoiceProvider) ?? ref.watch(selectedWalletProvider)?.currency ?? ref.watch(currencyProvider));
+final activityEntriesProvider = Provider<List<TransactionModel>>((ref) {
+  final currency = ref.watch(activityCurrencyProvider);
+  return ref.watch(allTransactionsProvider).where((tx) => tx.currency == currency).toList(growable:false);
+});
+
 final filteredTransactionsProvider = Provider<FilteredTransactions>((ref) {
-  final all = ref.watch(reportingTransactionsProvider);
+  final all = ref.watch(activityEntriesProvider);
   final filter = ref.watch(transactionFilterProvider);
   final span = filter.resolveSpan(ref.watch(clockProvider)());
 

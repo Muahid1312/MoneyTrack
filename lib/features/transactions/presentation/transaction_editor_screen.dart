@@ -33,20 +33,21 @@ import 'widgets/amount_keypad.dart';
 enum EditorResult { saved, deleted }
 
 class TransactionEditorScreen extends ConsumerStatefulWidget {
-  const TransactionEditorScreen({super.key, this.existing, this.initialType, this.initialProjectId, this.initialClientReceipt = false});
+  const TransactionEditorScreen({super.key, this.existing, this.initialType, this.preferredCurrency, this.initialProjectId, this.initialClientReceipt = false});
 
   final TransactionModel? existing;
   final TransactionType? initialType;
+  final AppCurrency? preferredCurrency;
   final int? initialProjectId;
   final bool initialClientReceipt;
 
-  static Route<EditorResult> route({TransactionModel? existing, TransactionType? initialType, int? initialProjectId, bool initialClientReceipt = false}) {
+  static Route<EditorResult> route({TransactionModel? existing, TransactionType? initialType, AppCurrency? preferredCurrency, int? initialProjectId, bool initialClientReceipt = false}) {
     return PageRouteBuilder<EditorResult>(
       fullscreenDialog: true,
       transitionDuration: const Duration(milliseconds: 420),
       reverseTransitionDuration: const Duration(milliseconds: 300),
       pageBuilder: (_, __, ___) =>
-          TransactionEditorScreen(existing: existing, initialType: initialType, initialProjectId: initialProjectId, initialClientReceipt: initialClientReceipt),
+          TransactionEditorScreen(existing: existing, initialType: initialType, preferredCurrency: preferredCurrency, initialProjectId: initialProjectId, initialClientReceipt: initialClientReceipt),
       transitionsBuilder: (context, anim, secondary, child) {
         final c = CurvedAnimation(
             parent: anim, curve: AppCurves.emphasized, reverseCurve: Curves.easeInCubic);
@@ -95,8 +96,13 @@ class _TransactionEditorScreenState extends ConsumerState<TransactionEditorScree
       categoryId: e?.projectCategoryId, rate: e?.projectRate,
       clientReceipt: e?.clientReceipt ?? widget.initialClientReceipt,
       paymentReference: e?.paymentReference);
-    _walletId = e?.walletId ?? 1;
-    _currency = e?.currency ?? ref.read(walletsProvider).valueOrNull?.wallets.where((w) => w.id == 1).firstOrNull?.currency ?? ref.read(currencyProvider);
+    var wallet = ref.read(selectedWalletProvider);
+    if (widget.preferredCurrency != null && wallet?.currency != widget.preferredCurrency) {
+      wallet = ref.read(walletsProvider).valueOrNull?.wallets.where(
+        (w) => !w.archived && w.currency == widget.preferredCurrency).firstOrNull ?? wallet;
+    }
+    _walletId = e?.walletId ?? wallet?.id ?? 1;
+    _currency = e?.currency ?? wallet?.currency ?? ref.read(currencyProvider);
     _type = e?.type ?? widget.initialType ?? TransactionType.expense;
     _amount = e == null ? AmountInput('', _currency) : AmountInput.fromMinor(e.amountMinor, _currency);
     _categoryId = e?.categoryId;
@@ -272,7 +278,7 @@ class _TransactionEditorScreenState extends ConsumerState<TransactionEditorScree
     SemanticsService.announce(
         _isEdit ? 'Transaction updated' : 'Transaction saved', TextDirection.ltr);
     setState(() => _done = true);
-    await Future<void>.delayed(const Duration(milliseconds: 1150));
+    await Future<void>.delayed(const Duration(milliseconds: 450));
     if (mounted) Navigator.of(context).pop(EditorResult.saved);
   }
 
@@ -305,15 +311,13 @@ class _TransactionEditorScreenState extends ConsumerState<TransactionEditorScree
             SafeArea(
               child: LayoutBuilder(builder: (context, c) {
                 final compact = c.maxHeight < 700;
-                // Very short screens: keep everything reachable by scrolling.
-                final scroll = c.maxHeight < 620 || ref.watch(projectRepositoryProvider) != null;
                 final saveButton = Padding(
                   padding: const EdgeInsets.fromLTRB(
                       AppSpacing.screen, AppSpacing.sm, AppSpacing.screen, AppSpacing.md),
                   child: PrimaryButton(
                     label: _isEdit ? 'Save changes' : 'Save ${_type.label.toLowerCase()}',
                     icon: Icons.check_rounded,
-                    height: scroll ? 52 : 56,
+                    height: 52,
                     loading: _saving && !_done,
                     onPressed: _save,
                   ),
@@ -326,9 +330,11 @@ class _TransactionEditorScreenState extends ConsumerState<TransactionEditorScree
                         child: walletState.when(
                           loading: () => const LinearProgressIndicator(),
                           error: (_, _) => TextButton(onPressed: () => ref.invalidate(walletsProvider), child: const Text('Retry loading wallets')),
-                          data: (_) => DropdownButtonFormField<int>(isExpanded: true, 
+                          data: (_) => available?.length == 1 && available!.single.id == _walletId
+                            ? Text('${available.single.name} · ${available.single.currency.code}', style: t.titleSmall)
+                            : DropdownButtonFormField<int>(isExpanded: true,
                             key: ValueKey(_walletId), initialValue: available?.any((w) => w.id == _walletId) == true ? _walletId : null,
-                            decoration: const InputDecoration(labelText: 'Wallet · original currency'),
+                            decoration: const InputDecoration(labelText: 'Wallet'),
                             items: [for (final w in available ?? <Wallet>[])
                               DropdownMenuItem(value: w.id, child: Text('${w.name} · ${w.currency.code}${w.archived ? ' · Archived' : ''}'))],
                             onChanged: _saving ? null : (id) {
@@ -360,20 +366,10 @@ class _TransactionEditorScreenState extends ConsumerState<TransactionEditorScree
                         onChanged: _setType,
                       ),
                     ),
-                    if (scroll)
-                      SizedBox(height: 116, child: _amountDisplay(currency, accent, t, compact))
-                    else
-                      Expanded(child: _amountDisplay(currency, accent, t, compact)),
-                    if (ref.watch(projectRepositoryProvider) != null)
-                      Padding(padding: const EdgeInsets.symmetric(horizontal: 24),
-                        child: ListTile(dense: true, contentPadding: EdgeInsets.zero,
-                          leading: const Icon(Icons.folder_outlined),
-                          title: Text(_project.projectId == null ? 'Project (optional)' :
-                            ref.watch(projectsProvider).valueOrNull?.projects.where((p) => p.id == _project.projectId).firstOrNull?.name ?? 'Project assignment'),
-                          subtitle: Text(_project.projectId == null ? 'Unassigned personal transaction' :
-                            _project.clientReceipt ? 'Client receipt · ${_project.paymentReference ?? "add payment reference"}' : 'Project category & historical conversion'),
-                          trailing: const Icon(Icons.chevron_right), onTap: _saving ? null : _editProject)),
-                    _metaRow(t),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      child: _amountDisplay(currency, accent, t, compact),
+                    ),
                     SizedBox(height: compact ? AppSpacing.md : AppSpacing.lg),
                     _ShakeX(trigger: _shakeCategory, child: _categoryPicker(t)),
                     SizedBox(height: compact ? AppSpacing.sm : AppSpacing.md),
@@ -381,17 +377,35 @@ class _TransactionEditorScreenState extends ConsumerState<TransactionEditorScree
                       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screen - 4),
                       child: AmountKeypad(
                         onKey: _onKey,
-                        keyHeight: scroll ? 48 : (compact ? 52 : 58),
+                        keyHeight: compact ? 48 : 52,
                       ),
                     ),
-                    if (!scroll) saveButton,
+                    ExpansionTile(
+                      title: const Text('More details'),
+                      subtitle: Text(ref.watch(projectRepositoryProvider) == null ? 'Date and note' : 'Date, note and project'),
+                      initiallyExpanded: _isEdit || _project.projectId != null,
+                      children: [
+                    if (ref.watch(projectRepositoryProvider) != null)
+                      Padding(padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: ListTile(dense: true, contentPadding: EdgeInsets.zero,
+                          leading: const Icon(Icons.folder_outlined),
+                          title: Text(_project.projectId == null ? 'Project (optional)' :
+                            ref.watch(projectsProvider).valueOrNull?.projects.where((p) => p.id == _project.projectId).firstOrNull?.name ?? 'Project assignment'),
+                          subtitle: Text(_project.projectId == null ? 'Choose a project' :
+                            _project.clientReceipt ? 'Client receipt · ${_project.paymentReference ?? "add payment reference"}' : 'Project category & historical conversion'),
+                          trailing: const Icon(Icons.chevron_right), onTap: _saving ? null : _editProject)),
+                    _metaRow(t),
+                      ],
+                    ),
                   ],
                 );
-                if (!scroll) return column;
-                // Short screens: content scrolls, Save stays pinned.
                 return Column(
                   children: [
                     Expanded(child: SingleChildScrollView(child: column)),
+                    if (_error != null) Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screen),
+                      child: Semantics(liveRegion: true, child: Text(_error!,style:t.labelMedium?.copyWith(color:p.expense))),
+                    ),
                     saveButton,
                   ],
                 );
@@ -507,21 +521,6 @@ class _TransactionEditorScreenState extends ConsumerState<TransactionEditorScree
               ),
             ),
           ),
-          const SizedBox(height: AppSpacing.sm),
-          AnimatedSwitcher(
-            duration: AppDurations.fast,
-            child: _error == null
-                ? const SizedBox(height: 20)
-                : Row(
-                    key: ValueKey(_error),
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.info_outline_rounded, size: 16, color: p.expense),
-                      const SizedBox(width: 6),
-                      Text(_error!, style: t.labelMedium?.copyWith(color: p.expense)),
-                    ],
-                  ),
-          ),
         ],
       ),
     );
@@ -564,12 +563,23 @@ class _TransactionEditorScreenState extends ConsumerState<TransactionEditorScree
       children: [
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screen),
-          child: Text('Category',
-              style: t.labelMedium?.copyWith(color: p.textSecondary)),
+          child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            Flexible(child: Text(_categoryId == null ? 'Category' : Categories.byId(_categoryId!).name, style: t.labelMedium?.copyWith(color: p.textSecondary))),
+            TextButton(onPressed: () async {
+              final picked = await showModalBottomSheet<String>(
+                context:context, useSafeArea:true, showDragHandle:true,
+                builder:(sheetContext)=>ListView(children:[
+                  for(final c in cats) ListTile(
+                    leading:Icon(c.icon,color:c.color), title:Text(c.name),selected:c.id==_categoryId,
+                    onTap:()=>Navigator.pop(sheetContext,c.id)),
+                ]));
+              if(picked!=null && mounted)setState((){_categoryId=picked; _error=null;});
+            }, child: const Text('All categories')),
+          ]),
         ),
         const SizedBox(height: AppSpacing.sm),
         SizedBox(
-          height: 84,
+          height: 62 + MediaQuery.textScalerOf(context).scale(t.labelSmall!.fontSize!),
           child: AnimatedSwitcher(
             duration: AppDurations.medium,
             child: ListView.separated(
@@ -582,23 +592,27 @@ class _TransactionEditorScreenState extends ConsumerState<TransactionEditorScree
               itemBuilder: (context, i) {
                 final c = cats[i];
                 final selected = c.id == _categoryId;
+                void selectCategory() {
+                  setState(() {
+                    _categoryId = c.id;
+                    if (_error == 'Choose a category') _error = null;
+                  });
+                }
                 return Semantics(
                   selected: selected,
                   button: true,
                   label: c.name,
                   excludeSemantics: true,
+                  onTap: selectCategory,
                   child: Pressable(
                     haptic: true,
                     scale: 0.92,
-                    onTap: () => setState(() {
-                      _categoryId = c.id;
-                      if (_error == 'Choose a category') _error = null;
-                    }),
+                    onTap: selectCategory,
                     child: SizedBox(
                       width: 70,
                       child: Column(
                         children: [
-                          CategoryAvatar(category: c, size: 50, selected: selected),
+                          CategoryAvatar(category: c, size: 42, selected: selected),
                           const SizedBox(height: 6),
                           Text(
                             c.name.split(' ').first,

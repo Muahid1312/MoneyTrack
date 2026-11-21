@@ -19,7 +19,7 @@ void main(){
     await tester.pumpAndSettle();await tester.tap(find.text('Emergency fund'));await tester.pumpAndSettle();
     expect(find.text(r'$40.00 reserved'),findsOneWidget);expect(find.text(r'Wallet cash: $100.00'),findsOneWidget);
     expect(find.text(r'Available wallet cash: $60.00'),findsOneWidget);
-    expect(find.text('Allocations stay inside this wallet and do not increase net worth.'),findsOneWidget);
+    expect(find.text('Add savings'), findsOneWidget);
     expect(find.text(r'Emergency fund · Weekly plan: $5.00'),findsOneWidget);
     await tester.ensureVisible(find.text('Withdraw'));
     await tester.tap(find.text('Withdraw'));await tester.pumpAndSettle();
