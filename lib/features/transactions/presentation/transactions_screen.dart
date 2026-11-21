@@ -14,12 +14,10 @@ import '../../../core/utils/money.dart';
 import '../../../core/widgets/buttons.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/transaction_tile.dart';
-import '../../../data/models/transaction.dart';
 import '../../../data/models/transaction_type.dart';
 import '../../../data/repositories/providers.dart';
-import '../../settings/application/settings_controller.dart';
-import '../../wallets/application/wallet_providers.dart';
 import '../application/transaction_filter.dart';
+import '../../wallets/application/wallet_providers.dart';
 import '../application/transactions_controller.dart';
 import 'transaction_actions.dart';
 import 'widgets/filter_sheets.dart';
@@ -68,10 +66,15 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
   Widget build(BuildContext context) {
     final p = context.palette;
     final t = Theme.of(context).textTheme;
-    final currency = ref.watch(currencyProvider);
+    final currency = ref.watch(activityCurrencyProvider);
+    final currencies = {
+      currency,
+      ...?ref.watch(walletsProvider).valueOrNull?.wallets.map((w) => w.currency),
+      ...ref.watch(allTransactionsProvider).map((tx) => tx.currency),
+    };
     final filter = ref.watch(transactionFilterProvider);
     final data = ref.watch(filteredTransactionsProvider);
-    final totalCount = ref.watch(reportingTransactionsProvider).length;
+    final totalCount = ref.watch(activityEntriesProvider).length;
     final marker = ref.watch(lastChangedTransactionProvider);
     final now = ref.watch(clockProvider)();
 
@@ -95,7 +98,13 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('Transactions', style: t.headlineMedium),
-                    Text('${currency.code} only · change reporting currency in Settings', style: t.labelSmall),
+                    if (currencies.length == 1) Text(currency.code, style: t.labelMedium)
+                    else DropdownButton<AppCurrency>(
+                      value: currency, isExpanded: true,
+                      items: [for (final c in AppCurrency.values.where(currencies.contains))
+                        DropdownMenuItem(value: c, child: Text('${c.name} · ${c.code}'))],
+                      onChanged: (c) => ref.read(activityCurrencyChoiceProvider.notifier).state = c,
+                    ),
                     const SizedBox(height: 4),
                     Text(
                       totalCount == 0
@@ -130,7 +139,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                   message:
                       'Record your first income or expense and it will show up here, grouped by day.',
                   actionLabel: 'Add transaction',
-                  onAction: () => TransactionActions.openEditor(context, ref),
+                  onAction: () => TransactionActions.openEditor(context, ref, preferredCurrency: currency),
                 ),
               ),
             )

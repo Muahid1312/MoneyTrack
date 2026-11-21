@@ -12,15 +12,20 @@ import 'package:moneytrack/data/repositories/settings_repository.dart';
 import 'package:moneytrack/features/transactions/application/transactions_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:moneytrack/core/constants/currency.dart';
+import 'package:moneytrack/data/models/wallet.dart';
+import 'package:moneytrack/data/repositories/wallet_repository.dart';
+import 'package:moneytrack/features/wallets/application/wallet_providers.dart';
 import 'support/fakes.dart';
 
-Future<ProviderContainer> _boot(WidgetTester tester, {bool seed = false}) async {
+Future<ProviderContainer> _boot(WidgetTester tester, {bool seed = false, WalletSnapshot? wallets}) async {
   GoogleFonts.config.allowRuntimeFetching = false;
   SharedPreferences.setMockInitialValues({});
   final prefs = await SharedPreferences.getInstance();
   final repo = InMemoryTransactionRepository(seed ? sampleData(DateTime.now()) : const []);
   final container = ProviderContainer(overrides: [
     transactionRepositoryProvider.overrideWithValue(repo),
+    if(wallets!=null)walletsProvider.overrideWith((_)async=>wallets),
     settingsRepositoryProvider.overrideWithValue(SettingsRepository(prefs)),
     projectsProvider.overrideWith((ref) async => const ProjectSnapshot(projects: [], categories: [], allocations: [], transactions: [])),
     reportDataProvider.overrideWith((ref) async {
@@ -49,22 +54,26 @@ Future<void> _scrollTo(WidgetTester tester, Finder f) => tester.scrollUntilVisib
 void main() {
   testWidgets('empty app shows empty states on every tab', (tester) async {
     await _boot(tester);
-    expect(find.text('Welcome back'), findsOneWidget);
+    expect(find.text('Today'), findsOneWidget);
     await _scrollTo(tester, find.text('Start tracking'));
     expect(find.text('Start tracking'), findsOneWidget);
-    await tester.tap(find.text('Projects').last);
-    await tester.pumpAndSettle();
-    expect(find.text('New project'), findsOneWidget);
-    await tester.tap(find.text('Reports'));
-    await tester.pumpAndSettle();
-    expect(find.text('Financial reports'), findsOneWidget);
-    await tester.tap(find.text('More'));
-    await tester.pumpAndSettle();
-    await _scrollTo(tester, find.text('Transaction history'));
-    await tester.tap(find.text('Transaction history'));
+    await tester.tap(find.bySemanticsLabel('Activity').last);
     await tester.pumpAndSettle();
     expect(find.text('No transactions yet'), findsOneWidget);
-    await tester.pageBack();await tester.pumpAndSettle();
+    await tester.tap(find.bySemanticsLabel('Savings').last);
+    await tester.pumpAndSettle();
+    expect(find.text('New goal'), findsOneWidget);
+    await tester.tap(find.bySemanticsLabel('More').last);
+    await tester.pumpAndSettle();
+    for (final entry in [('Financial reports', 'Refresh report'), ('Projects', 'New project')]) {
+      await _scrollTo(tester,find.text(entry.$1));
+      await tester.ensureVisible(find.text(entry.$1));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(entry.$1));
+      await tester.pumpAndSettle();
+      expect(entry.$1=='Financial reports' ? find.byTooltip(entry.$2) : find.text(entry.$2),findsOneWidget);
+      await tester.pageBack();await tester.pumpAndSettle();
+    }
     await _scrollTo(tester, find.text('Export to CSV'));
     expect(find.text('Export to CSV'), findsOneWidget);
   });
@@ -107,9 +116,31 @@ void main() {
     await tester.pump(const Duration(seconds: 2));
   });
 
+  testWidgets('Home wallet carries into a new expense and its activity history', (tester) async {
+    const wallets = WalletSnapshot([
+      Wallet(id:1,name:'Bank',type:WalletType.bank,currency:AppCurrency.usd),
+      Wallet(id:2,name:'Cash',type:WalletType.cash,currency:AppCurrency.afn),
+    ], {1:10000,2:2000000}, [], reserved:{2:500000});
+    final c=await _boot(tester,wallets:wallets);
+    await tester.tap(find.text('Bank · USD')); await tester.pumpAndSettle();
+    await tester.tap(find.text('Cash · AFN').last); await tester.pumpAndSettle();
+    expect(find.text('15,000.00 ؋'),findsOneWidget);
+    await tester.tap(find.text('Add expense')); await tester.pumpAndSettle();
+    expect(find.text('Add note'),findsNothing);
+    await tester.tap(find.bySemanticsLabel('5').last);
+    await tester.tap(find.text('All categories')); await tester.pumpAndSettle();
+    await tester.tap(find.text('Groceries').last); await tester.pumpAndSettle();
+    await tester.tap(find.text('Save expense')); await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds:1));await tester.pumpAndSettle();
+    final entry=c.read(allTransactionsProvider).single;
+    expect((entry.walletId,entry.currency,entry.amountMinor),(2,AppCurrency.afn,500));
+    await tester.tap(find.bySemanticsLabel('Activity').last);await tester.pumpAndSettle();
+    expect(find.text('Groceries'),findsWidgets);
+  });
+
   testWidgets('seeded data renders statistics without errors', (tester) async {
     await _boot(tester, seed: true);
-    await tester.tap(find.text('More'));
+    await tester.tap(find.bySemanticsLabel('More').last);
     await tester.pumpAndSettle();
     await _scrollTo(tester, find.text('Spending insights'));
     await tester.tap(find.text('Spending insights'));

@@ -131,7 +131,7 @@ class GoalsScreen extends ConsumerWidget {
     floatingActionButton:FloatingActionButton.extended(icon:const Icon(Icons.add),label:const Text('New goal'),
       onPressed:()=>Navigator.push(context,MaterialPageRoute<void>(builder:(_)=>const GoalForm()))),
     body:ref.watch(planningProvider).when(loading:()=>const Center(child:CircularProgressIndicator()),error:(_,_)=>planningError(ref),data:(data)=>ListView(padding:const EdgeInsets.fromLTRB(20,16,20,100),children:[
-      const Text('Goals reserve money inside a wallet. Reserved savings are already included in wallet balances, so they are never added to total cash again.'),
+      const Text('Set money aside in a wallet for a goal or an emergency fund.'),
       if(data?.goals.isEmpty??true)const Padding(padding:EdgeInsets.all(24),child:Text('No savings goals yet.')),
       for(final g in data?.goals??<SavingsGoal>[])Card(child:ListTile(leading:Icon(const {'savings':Icons.savings_outlined,'home':Icons.home_outlined,'travel':Icons.flight_outlined,'education':Icons.school_outlined}[g.row['icon']]??Icons.savings_outlined,color:Color(g.row['color'] as int)),
         title:Text(g.name),subtitle:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
@@ -148,7 +148,7 @@ class GoalDetailScreen extends ConsumerWidget {
     var input='';
     final reference='goal-${DateTime.now().microsecondsSinceEpoch}';
     final amount=await showDialog<int>(context:context,builder:(ctx)=>AlertDialog(
-      title:Text(withdraw?'Withdraw reservation':'Reserve savings'),
+      title:Text(withdraw?'Withdraw savings':'Add savings'),
       content:Form(key:form,child:TextFormField(onChanged:(v)=>input=v,
         keyboardType:const TextInputType.numberWithOptions(decimal:true),
         decoration:InputDecoration(labelText:'Amount (${goal.currency.code})'),
@@ -160,7 +160,7 @@ class GoalDetailScreen extends ConsumerWidget {
         })),
       actions:[TextButton(onPressed:()=>Navigator.pop(ctx),child:const Text('Cancel')),
         FilledButton(onPressed:(){if(form.currentState!.validate())Navigator.pop(ctx,Money.parseMinor(input,goal.currency));},
-          child:Text(withdraw?'Review withdrawal':'Reserve'))]));
+          child:Text(withdraw?'Review withdrawal':'Add savings'))]));
     if(amount==null || !context.mounted)return;
     if(withdraw){
       final confirmed=await showDialog<bool>(context:context,builder:(ctx)=>AlertDialog(
@@ -185,14 +185,14 @@ class GoalDetailScreen extends ConsumerWidget {
           Text('Target ${Money.format(g.targetMinor,g.currency)} · ${g.status}'),
           LinearProgressIndicator(value:g.progress.clamp(0.0,1.0).toDouble()),Text('${(g.progress*100).toStringAsFixed(1)}% funded'),
           if(g.targetDate!=null)Text('Target date ${g.targetDate}'),
+          if(g.status!='archived')Wrap(spacing:12,runSpacing:8,children:[
+            FilledButton(onPressed:()=>_move(context,ref,g,false),child:const Text('Add savings')),
+            OutlinedButton(onPressed:()=>_move(context,ref,g,true),child:const Text('Withdraw')),
+            if(g.status!='completed' && g.allocatedMinor>=g.targetMinor)OutlinedButton(onPressed:()=>planningAction(context,ref,()=>ref.read(planningRepositoryProvider)!.goalStatus(id,'completed')),child:const Text('Mark completed'))]),
           if(wallets!=null)...[Text('Wallet cash: ${Money.format(wallets.balances[g.walletId]??0,g.currency)}'),
             Text('Wallet reserved across goals: ${Money.format(wallets.reserved[g.walletId]??0,g.currency)}'),
             Text('Available wallet cash: ${Money.format(wallets.available(g.walletId),g.currency)}')],
-          const Text('Allocations stay inside this wallet and do not increase net worth.'),const SizedBox(height:16),
-          if(g.status!='archived')Wrap(spacing:12,runSpacing:8,children:[
-            FilledButton(onPressed:()=>_move(context,ref,g,false),child:const Text('Allocate')),
-            OutlinedButton(onPressed:()=>_move(context,ref,g,true),child:const Text('Withdraw')),
-            if(g.status!='completed' && g.allocatedMinor>=g.targetMinor)OutlinedButton(onPressed:()=>planningAction(context,ref,()=>ref.read(planningRepositoryProvider)!.goalStatus(id,'completed')),child:const Text('Mark completed'))]),
+
           TextButton(onPressed:()=>planningAction(context,ref,()=>ref.read(planningRepositoryProvider)!.goalStatus(id,g.status=='archived'?'active':'archived')),child:Text(g.status=='archived'?'Restore goal':'Archive goal (keep reservations)')),
           Text('Contribution history',style:Theme.of(context).textTheme.titleLarge),
           for(final e in data!.savingsEvents.where((e)=>e['goal_id']==id))ListTile(contentPadding:EdgeInsets.zero,

@@ -5,31 +5,45 @@ import 'package:intl/intl.dart';
 import '../../../core/constants/categories.dart';
 import '../../../core/utils/money.dart';
 import '../../../data/models/wallet.dart';
+import '../../../data/models/transaction.dart';
 import '../../../data/repositories/providers.dart';
 import '../../planning/application/planning_providers.dart';
-import '../../planning/domain/schedule.dart';
 import '../../settings/application/settings_controller.dart';
 import '../../transactions/application/transactions_controller.dart';
 import '../../wallets/application/wallet_providers.dart';
+import '../../wallets/presentation/wallets_screen.dart';
 import '../domain/wallet_budget.dart';
 
-class WalletBudgetPanel extends ConsumerStatefulWidget {
-  const WalletBudgetPanel({super.key});
-  @override
-  ConsumerState<WalletBudgetPanel> createState() => _WalletBudgetPanelState();
-}
-
-class _WalletBudgetPanelState extends ConsumerState<WalletBudgetPanel> {
-  int? walletId;
+class WalletBudgetPanel extends ConsumerWidget {
+  const WalletBudgetPanel({super.key, this.actions});
+  final Widget? actions;
 
   @override
-  Widget build(BuildContext context) {
-    final snapshot = ref.watch(walletsProvider).valueOrNull;
-    if (snapshot == null) return const SizedBox.shrink();
-    final wallets = snapshot.wallets.where((w) => !w.archived).toList();
-    if (wallets.isEmpty) return const SizedBox.shrink();
-    final wallet =
-        wallets.where((w) => w.id == walletId).firstOrNull ?? wallets.first;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(walletsProvider);
+    final snapshot = state.valueOrNull;
+    final wallet = ref.watch(selectedWalletProvider);
+    if (snapshot == null || wallet == null) {
+      if (state.hasError) {
+        return TextButton(
+          onPressed: () => ref.invalidate(walletsProvider),
+          child: const Text('Retry loading wallets'),
+        );
+      }
+      if (state.isLoading) return const LinearProgressIndicator();
+      if (snapshot != null) {
+        return OutlinedButton.icon(
+          icon: const Icon(Icons.account_balance_wallet_outlined),
+          label: const Text('Add a wallet'),
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute<void>(builder: (_) => const WalletEditorScreen()),
+          ),
+        );
+      }
+      return actions ?? const SizedBox.shrink();
+    }
+    final wallets = snapshot.wallets.where((w) => !w.archived);
     final hidden = ref.watch(settingsProvider).hideBalance;
     final now = ref.watch(clockProvider)();
     final transactions = ref.watch(transactionsProvider);
@@ -40,30 +54,54 @@ class _WalletBudgetPanelState extends ConsumerState<WalletBudgetPanel> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'How much can I spend today?',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            DropdownButton<int>(
-              isExpanded: true,
-              value: wallet.id,
-              items: [
-                for (final w in wallets)
-                  DropdownMenuItem(
-                    value: w.id,
-                    child: Text('${w.name} · ${w.currency.code}'),
+            Row(
+              children: [
+                Expanded(
+                  child: wallets.length == 1
+                      ? Text(
+                          '${wallet.name} · ${wallet.currency.code}',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        )
+                      : DropdownButton<int>(
+                          isExpanded: true,
+                          value: wallet.id,
+                          items: [
+                            for (final w in wallets)
+                              DropdownMenuItem(
+                                value: w.id,
+                                child: Text('${w.name} · ${w.currency.code}'),
+                              ),
+                          ],
+                          onChanged: (id) =>
+                              ref
+                                      .read(selectedWalletIdProvider.notifier)
+                                      .state =
+                                  id,
+                        ),
+                ),
+                IconButton(
+                  tooltip: hidden ? 'Show balance' : 'Hide balance',
+                  icon: Icon(
+                    hidden
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
                   ),
+                  onPressed: () =>
+                      ref.read(settingsProvider.notifier).toggleHideBalance(),
+                ),
               ],
-              onChanged: (v) => setState(() => walletId = v),
             ),
+            const Text('Available to spend'),
+            Text(
+              money(snapshot.available(wallet.id!)),
+              style: Theme.of(context).textTheme.headlineMedium,
+            ),
+            const SizedBox(height: 8),
             Text('Wallet cash   ${money(snapshot.balances[wallet.id]!)}'),
             Text(
               'Reserved savings   ${money(snapshot.reserved[wallet.id] ?? 0)}',
             ),
-            Text(
-              'Available cash   ${money(snapshot.available(wallet.id!))}',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
+            if (actions != null) ...[const SizedBox(height: 16), actions!],
             const Divider(),
             ref
                 .watch(planningProvider)
@@ -79,80 +117,24 @@ class _WalletBudgetPanelState extends ConsumerState<WalletBudgetPanel> {
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (budgets.isEmpty)
-                          const Text('No spending limits for this wallet.'),
+                        if (budgets.isEmpty) const Text('No budget set'),
                         for (final b in budgets)
-                          ListTile(
-                            contentPadding: EdgeInsets.zero,
-                            title: Text(
-                              '${b.period.name} · ${b.category == null ? 'All expenses' : Categories.byId(b.category!).name}',
-                            ),
-                            subtitle: Builder(
-                              builder: (_) {
-                                if (!transactions.hasValue) {
-                                  return const Text('Spending unavailable');
-                                }
-                                final last = b.end;
-                                final asOf =
-                                    last != null &&
-                                        DateUtils.dateOnly(now).isAfter(last)
-                                    ? DateTime(
-                                        last.year,
-                                        last.month,
-                                        last.day + 1,
-                                      ).subtract(
-                                        const Duration(microseconds: 1),
-                                      )
-                                    : now;
-                                final ended = asOf != now;
-                                final status = b.status(
-                                  asOf,
-                                  wallet.currency,
-                                  transactions.requireValue,
-                                );
-                                if (status == null) {
-                                  return Text(
-                                    'Starts ${CivilSchedule.key(b.start)} · Limit ${money(b.limit)}',
-                                  );
-                                }
-                                final first = b.period == BudgetPeriod.custom
-                                    ? b.start
-                                    : periodStart(b.period, asOf);
-                                final through = switch (b.period) {
-                                  BudgetPeriod.weekly => DateTime(
-                                    first.year,
-                                    first.month,
-                                    first.day + 6,
-                                  ),
-                                  BudgetPeriod.monthly => DateTime(
-                                    first.year,
-                                    first.month + 1,
-                                    0,
-                                  ),
-                                  BudgetPeriod.custom => last!,
-                                  BudgetPeriod.daily => first,
-                                };
-                                return Text(
-                                  [
-                                    '${ended ? 'Ended · ' : ''}${CivilSchedule.key(first)}${first == through ? '' : ' – ${CivilSchedule.key(through)}'}',
-                                    'Limit ${money(b.limit)}${b.rollover ? ' · Carried forward ${money(status.carry)}' : ''}',
-                                    'Spent ${money(status.spent)} · Remaining ${money(status.remaining < 0 ? 0 : status.remaining)}',
-                                    if (status.remaining < 0)
-                                      'Overspent ${money(-status.remaining)}',
-                                  ].join('\n'),
-                                );
-                              },
-                            ),
-                            onTap: () => _edit(wallet, b),
+                          _BudgetItem(
+                            budget: b,
+                            wallet: wallet,
+                            now: now,
+                            transactions: transactions,
+                            money: money,
+                            onEdit: () => _edit(context, wallet, b),
                           ),
                       ],
                     );
                   },
                 ),
             TextButton.icon(
-              onPressed: () => _edit(wallet, null),
+              onPressed: () => _edit(context, wallet, null),
               icon: const Icon(Icons.add),
-              label: const Text('Wallet budget'),
+              label: const Text('Set a budget'),
             ),
           ],
         ),
@@ -160,9 +142,93 @@ class _WalletBudgetPanelState extends ConsumerState<WalletBudgetPanel> {
     );
   }
 
-  void _edit(Wallet wallet, WalletBudget? budget) => Navigator.of(
-    context,
-  ).push(MaterialPageRoute<void>(builder: (_) => _BudgetForm(wallet, budget)));
+  void _edit(BuildContext context, Wallet wallet, WalletBudget? budget) =>
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(builder: (_) => _BudgetForm(wallet, budget)),
+      );
+}
+
+class _BudgetItem extends StatelessWidget {
+  const _BudgetItem({
+    required this.budget,
+    required this.wallet,
+    required this.now,
+    required this.transactions,
+    required this.money,
+    required this.onEdit,
+  });
+
+  final WalletBudget budget;
+  final Wallet wallet;
+  final DateTime now;
+  final AsyncValue<List<TransactionModel>> transactions;
+  final String Function(int) money;
+  final VoidCallback onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    final last = budget.end;
+    final ended = last != null && DateUtils.dateOnly(now).isAfter(last);
+    final asOf = last != null && ended
+        ? DateTime(
+            last.year,
+            last.month,
+            last.day + 1,
+          ).subtract(const Duration(microseconds: 1))
+        : now;
+    final status = transactions.hasValue
+        ? budget.status(asOf, wallet.currency, transactions.requireValue)
+        : null;
+    final category = budget.category == null
+        ? 'All expenses'
+        : Categories.byId(budget.category!).name;
+    final label = switch (budget.period) {
+      BudgetPeriod.daily => 'Daily',
+      BudgetPeriod.weekly => 'Weekly',
+      BudgetPeriod.monthly => 'Monthly',
+      BudgetPeriod.custom => 'Custom',
+    };
+    final dateFormat = DateFormat.yMMMd();
+    final first = budget.period == BudgetPeriod.custom || status == null
+        ? budget.start
+        : periodStart(budget.period, asOf);
+    final through = switch (budget.period) {
+      BudgetPeriod.weekly => DateTime(first.year, first.month, first.day + 6),
+      BudgetPeriod.monthly => DateTime(first.year, first.month + 1, 0),
+      BudgetPeriod.custom => last!,
+      BudgetPeriod.daily => first,
+    };
+    final summary = !transactions.hasValue
+        ? 'Spending unavailable'
+        : status == null
+        ? 'Starts ${dateFormat.format(first)}'
+        : status.remaining < 0
+        ? '${money(-status.remaining)} over budget'
+        : '${money(status.remaining)} left';
+    return ExpansionTile(
+      key: ValueKey(budget.id),
+      tilePadding: EdgeInsets.zero,
+      title: Text('$label · $category'),
+      subtitle: Text(ended ? 'Ended · $summary' : summary),
+      expandedCrossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: Text(
+            first == through
+                ? dateFormat.format(first)
+                : '${dateFormat.format(first)} – ${dateFormat.format(through)}',
+          ),
+        ),
+        Text('Limit   ${money(budget.limit)}'),
+        if (status != null) ...[
+          if (budget.rollover) Text('Carried forward   ${money(status.carry)}'),
+          Text('Spent   ${money(status.spent)}'),
+        ],
+        TextButton(onPressed: onEdit, child: const Text('Edit budget')),
+      ],
+    );
+  }
 }
 
 class _BudgetForm extends ConsumerStatefulWidget {
@@ -282,7 +348,7 @@ class _BudgetFormState extends ConsumerState<_BudgetForm> {
           controller: limit,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           decoration: InputDecoration(
-            labelText: 'Period limit (${widget.wallet.currency.code})',
+            labelText: 'Spending limit (${widget.wallet.currency.code})',
           ),
         ),
         DropdownButtonFormField<BudgetPeriod>(
@@ -290,7 +356,15 @@ class _BudgetFormState extends ConsumerState<_BudgetForm> {
           decoration: const InputDecoration(labelText: 'Period'),
           items: [
             for (final p in BudgetPeriod.values)
-              DropdownMenuItem(value: p, child: Text(p.name)),
+              DropdownMenuItem(
+                value: p,
+                child: Text(switch (p) {
+                  BudgetPeriod.daily => 'Daily',
+                  BudgetPeriod.weekly => 'Weekly',
+                  BudgetPeriod.monthly => 'Monthly',
+                  BudgetPeriod.custom => 'Choose dates',
+                }),
+              ),
           ],
           onChanged: (p) => setState(() => period = p!),
         ),

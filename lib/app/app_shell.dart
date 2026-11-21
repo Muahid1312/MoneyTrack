@@ -13,8 +13,9 @@ import '../features/budgets/domain/budget_calculator.dart';
 import '../features/dashboard/presentation/dashboard_screen.dart';
 import '../features/settings/application/settings_controller.dart';
 import '../features/settings/presentation/settings_screen.dart';
-import '../features/projects/presentation/projects_screen.dart';
-import '../features/reports/presentation/reports_screen.dart';
+import '../features/transactions/presentation/transactions_screen.dart';
+import '../features/transactions/application/transaction_filter.dart';
+import '../features/planning/presentation/planning_screens.dart';
 import '../features/transactions/presentation/transaction_actions.dart';
 
 
@@ -42,8 +43,8 @@ class _AppShellState extends ConsumerState<AppShell>
 
   static const _screens = [
     DashboardScreen(),
-    ProjectsScreen(),
-    ReportsScreen(),
+    TransactionsScreen(),
+    GoalsScreen(),
     SettingsScreen(),
   ];
 
@@ -117,7 +118,7 @@ class _AppShellState extends ConsumerState<AppShell>
               children: [
                 for (var i = 0; i < _screens.length; i++)
                   if (_visited.contains(i)) TickerMode(enabled: i == index,
-                    child: i == 1 || i == 2
+                    child: i == 2
                       ? Padding(padding: EdgeInsets.only(bottom: AppShell.contentBottomInset(context)), child: _screens[i])
                       : _screens[i])
                   else const SizedBox.shrink(),
@@ -132,7 +133,8 @@ class _AppShellState extends ConsumerState<AppShell>
             HapticFeedback.selectionClick();
             ref.read(shellTabProvider.notifier).state = i;
           },
-          onAdd: () => TransactionActions.openEditor(context, ref),
+          onAdd: () => TransactionActions.openEditor(context, ref,
+            preferredCurrency: index == 1 ? ref.read(activityCurrencyProvider) : null),
         ),
       ),
     );
@@ -157,8 +159,8 @@ class _NavBar extends StatelessWidget {
 
   static const _items = [
     _NavItem('Home', Icons.home_outlined, Icons.home_rounded),
-    _NavItem('Projects', Icons.folder_outlined, Icons.folder_rounded),
-    _NavItem('Reports', Icons.insights_outlined, Icons.insights_rounded),
+    _NavItem('Activity', Icons.receipt_long_outlined, Icons.receipt_long),
+    _NavItem('Savings', Icons.savings_outlined, Icons.savings),
     _NavItem('More', Icons.grid_view_outlined, Icons.grid_view_rounded),
   ];
 

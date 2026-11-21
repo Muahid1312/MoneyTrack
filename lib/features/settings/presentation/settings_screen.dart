@@ -1,7 +1,6 @@
 import '../../../data/storage/app_runtime.dart';
 import '../../documents/application/document_service.dart';
 import '../../reports/application/report_exporter.dart';
-import '../../transactions/presentation/transactions_screen.dart';
 import '../../statistics/presentation/statistics_screen.dart';
 import '../../reports/presentation/reports_screen.dart';
 import '../../security/presentation/security_widgets.dart';
@@ -129,11 +128,53 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         AppShell.contentBottomInset(context),
       ),
       children: [
-        Text('Settings', style: t.headlineMedium),
-        const SizedBox(height: 4),
-        Text('Make MoneyTrack yours', style: t.bodyMedium?.copyWith(color: p.textSecondary)),
+        Text('More', style: t.headlineMedium),
         const SizedBox(height: AppSpacing.xxl),
 
+        const _GroupLabel('Money'),
+        _Group(children: [
+          _Tile(icon: Icons.bar_chart_outlined, iconColor: AppColors.emerald,
+            title: 'Spending insights', subtitle: 'Category breakdown & period comparisons',
+            onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => Scaffold(appBar: AppBar(), body: const StatisticsScreen())))),
+          _Tile(icon: Icons.analytics_outlined, iconColor: AppColors.emerald,
+            title: 'Financial reports', subtitle: 'Filters, charts, PDF & CSV exports',
+            onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const ReportsScreen()))),
+          _Tile(icon: Icons.event_note_outlined, iconColor: AppColors.emerald,
+            title: 'Planning', subtitle: 'Debts, savings & recurring entries',
+            onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const PlanningScreen()))),
+          _Tile(icon: Icons.folder_outlined, iconColor: AppColors.emerald,
+            title: 'Projects', subtitle: 'Personal & business project finances',
+            onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const ProjectsScreen()))),
+          _Tile(icon: Icons.account_balance_wallet_outlined,
+            iconColor: AppColors.emerald, title: 'Wallets',
+            subtitle: 'Accounts, balances & transfers',
+            onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const WalletsScreen()))),
+          _Tile(
+            icon: Icons.payments_outlined,
+            iconColor: const Color(0xFF3B82F6),
+            title: 'Reporting currency',
+            subtitle: '${currency.name} · totals include only this currency',
+            value: '${currency.code} ${currency.symbol}',
+            onTap: _pickCurrency,
+          ),
+          _Tile(
+            icon: Icons.track_changes_rounded,
+            iconColor: AppColors.emerald,
+            title: 'Monthly budget',
+            subtitle: settings.hasBudget ? 'Alerts at 80% & 100%' : 'Not set',
+            value: settings.hasBudget ? Money.format(settings.monthlyBudgetMinor, currency) : 'Set',
+            onTap: () => showBudgetEditor(context),
+          ),
+          _Tile(
+            icon: Icons.donut_large_rounded,
+            iconColor: const Color(0xFF8B5CF6),
+            title: 'Budget overview',
+            subtitle: 'Remaining & categories',
+            onTap: () => Navigator.of(context).push(BudgetScreen.route()),
+          ),
+        ]),
+
+        const _GroupLabel('Preferences'),
         // Profile
         Pressable(
           onTap: _editName,
@@ -211,52 +252,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ref.read(settingsProvider.notifier).setThemeMode(m);
               },
             ),
-          ),
-        ]),
-
-        const _GroupLabel('Money'),
-        _Group(children: [
-          _Tile(icon: Icons.receipt_long_outlined, iconColor: AppColors.emerald,
-            title: 'Transaction history', subtitle: 'Search, filter, edit & manage receipts',
-            onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => Scaffold(appBar: AppBar(), body: const TransactionsScreen())))),
-          _Tile(icon: Icons.bar_chart_outlined, iconColor: AppColors.emerald,
-            title: 'Spending insights', subtitle: 'Category breakdown & period comparisons',
-            onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => Scaffold(appBar: AppBar(), body: const StatisticsScreen())))),
-          _Tile(icon: Icons.analytics_outlined, iconColor: AppColors.emerald,
-            title: 'Financial reports', subtitle: 'Filters, charts, PDF & CSV exports',
-            onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const ReportsScreen()))),
-          _Tile(icon: Icons.event_note_outlined, iconColor: AppColors.emerald,
-            title: 'Planning', subtitle: 'Debts, savings & recurring entries',
-            onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const PlanningScreen()))),
-          _Tile(icon: Icons.folder_outlined, iconColor: AppColors.emerald,
-            title: 'Projects', subtitle: 'Personal & business project finances',
-            onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const ProjectsScreen()))),
-          _Tile(icon: Icons.account_balance_wallet_outlined,
-            iconColor: AppColors.emerald, title: 'Wallets',
-            subtitle: 'Accounts, balances & transfers',
-            onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const WalletsScreen()))),
-          _Tile(
-            icon: Icons.payments_outlined,
-            iconColor: const Color(0xFF3B82F6),
-            title: 'Reporting currency',
-            subtitle: '${currency.name} · totals include only this currency',
-            value: '${currency.code} ${currency.symbol}',
-            onTap: _pickCurrency,
-          ),
-          _Tile(
-            icon: Icons.track_changes_rounded,
-            iconColor: AppColors.emerald,
-            title: 'Monthly budget',
-            subtitle: settings.hasBudget ? 'Alerts at 80% & 100%' : 'Not set',
-            value: settings.hasBudget ? Money.format(settings.monthlyBudgetMinor, currency) : 'Set',
-            onTap: () => showBudgetEditor(context),
-          ),
-          _Tile(
-            icon: Icons.donut_large_rounded,
-            iconColor: const Color(0xFF8B5CF6),
-            title: 'Budget overview',
-            subtitle: 'Remaining & categories',
-            onTap: () => Navigator.of(context).push(BudgetScreen.route()),
           ),
         ]),
 
