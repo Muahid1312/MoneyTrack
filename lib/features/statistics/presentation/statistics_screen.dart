@@ -144,7 +144,7 @@ class StatisticsScreen extends ConsumerWidget {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const _Legend(color: AppColors.emerald, label: 'Income'),
+                              const _Legend(color: AppColors.incomeBlue, label: 'Income'),
                               const SizedBox(width: 20),
                               _Legend(color: p.expense, label: 'Expenses'),
                             ],
@@ -251,14 +251,14 @@ class _OverviewCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                   decoration: BoxDecoration(
-                    color: (savingsRate >= 0 ? AppColors.emerald : AppColors.rose)
+                    color: (savingsRate >= 0 ? AppColors.incomeBlue : AppColors.rose)
                         .withValues(alpha: 0.16),
                     borderRadius: BorderRadius.circular(AppRadii.pill),
                   ),
                   child: Text(
                     '${savingsRate.toStringAsFixed(0)}% saved',
                     style: t.labelSmall?.copyWith(
-                        color: savingsRate >= 0 ? AppColors.emeraldBright : AppColors.roseSoft),
+                        color: savingsRate >= 0 ? AppColors.incomeLight : AppColors.roseSoft),
                   ),
                 ),
             ],
@@ -288,7 +288,7 @@ class _OverviewCard extends StatelessWidget {
                   children: [
                     Expanded(
                       flex: (v * 1000).round().clamp(1, 999),
-                      child: Container(color: AppColors.emeraldBright),
+                      child: Container(color: AppColors.incomeLight),
                     ),
                     const SizedBox(width: 3),
                     Expanded(
@@ -302,7 +302,7 @@ class _OverviewCard extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           Wrap(spacing: 20, runSpacing: 12, children: [
-            _MiniStat(label: 'Income', minor: totals.income, color: AppColors.emeraldBright, currency: currency),
+            _MiniStat(label: 'Income', minor: totals.income, color: AppColors.incomeLight, currency: currency),
             _MiniStat(label: 'Expenses', minor: totals.expense, color: AppColors.roseSoft, currency: currency),
             _MiniCount(count: totals.count),
           ]),
@@ -420,12 +420,12 @@ class _InsightRow extends StatelessWidget {
                     width: 36,
                     height: 36,
                     decoration: BoxDecoration(
-                      color: AppColors.emerald.withValues(alpha: context.isDark ? 0.16 : 0.1),
+                      color: AppColors.incomeBlue.withValues(alpha: context.isDark ? 0.16 : 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(Icons.today_outlined,
                         size: 18,
-                        color: context.isDark ? AppColors.emeraldBright : AppColors.emeraldDeep),
+                        color: context.isDark ? AppColors.incomeLight : AppColors.incomeBlue),
                   ),
                   const SizedBox(height: 12),
                   Text('Average per day', style: t.labelMedium?.copyWith(color: p.textSecondary)),
@@ -692,7 +692,7 @@ class _ComparisonCard extends StatelessWidget {
           Divider(color: p.border),
           const SizedBox(height: 20),
           block('Income', cmp.current.income, cmp.previous.income, cmp.incomeChange,
-              AppColors.emerald, true),
+              AppColors.incomeBlue, true),
         ],
       ),
     );

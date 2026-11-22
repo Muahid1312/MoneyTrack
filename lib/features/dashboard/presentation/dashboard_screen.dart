@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../app/app_shell.dart';
+import '../../transactions/presentation/transactions_screen.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../../../core/utils/date_utils.dart';
@@ -199,7 +200,7 @@ class DashboardScreen extends ConsumerWidget {
                         wallet?.currency ?? currency;
                     ref.read(transactionFilterProvider.notifier).state =
                         TransactionFilter(walletId: wallet?.id);
-                    ref.read(shellTabProvider.notifier).state = 1;
+                    Navigator.push(context,MaterialPageRoute<void>(builder:(_)=>Scaffold(appBar:AppBar(title:const Text('Wallet activity')),body:const TransactionsScreen())));
                   },
                 ),
                 const SizedBox(height: AppSpacing.md),

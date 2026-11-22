@@ -1,25 +1,24 @@
-# MoneyTrack navigation
+# MoneyTrack ledger navigation
 
-|Destination|First question|Next action|
+|Primary tab|Controls|Where they lead|
 |---|---|---|
-|Home|How much cash can I spend?|Read available cash, select a wallet, record expense or income, transfer, open recent activity.|
-|Activity|Where is my transaction?|Search the ledger in one currency, narrow by wallet/type/date/category, open details, edit, attach or delete.|
-|Add|What did I pay or receive?|Enter an amount, review the visible type, category and wallet, save. Transfer opens its own two-wallet form. Back returns to the originating tab.|
-|Insights|Where did my money go?|Choose a period and reporting currency, inspect spending, cash flow and the contributing entries.|
-|Explore|Where can I find a feature?|Search local names and synonyms or browse a group. Pin frequently used destinations. Back from a feature returns to the directory.|
+|Transactions|Month arrows, currency menu, search, Daily, Calendar and +|A tapped calendar day shows its records. Daily lists the month in reverse chronological order. Search spans all dates and retains date, wallet, type and category filters. Tap an entry for receipts, editing, deletion or undo.|
+|Statistics|Month arrows, reporting currency, Expenses and Income|Tap a chart slice or category row for its underlying entries. Trends and comparisons opens the existing period filters, monthly overview, historical wallet cash, projects and reports.|
+|Accounts|Balances grouped by currency, transfer action and New wallet|Open a wallet to inspect its transactions, transfers, debt postings and reservations or edit its definition.|
+|More|Find a feature, ordered pins, recent tools and grouped rows|Search aliases such as “borrow”, “save money”, “business”, “backup” and “monthly limit”. Matching wallets and transactions appear below navigation results.|
+
+## Entry
+
+The transaction form opens on the selected calendar date. A Daily view in the current month starts a new entry today. Review the visible type, date and account, choose a category, enter an amount and save. Notes are optional. The star opens past entries for the current account, currency and type. Choosing one fills a draft. Only Save writes the new transaction. Transfer opens the existing two-account form with its own amount, date, exchange rate and confirmation.
 
 ## Directory
 
-|Group|Destinations and child routes|
+|Group|Tools|
 |---|---|
-|My money|Wallets → account and history, transfers, categories → matching Activity, transactions → details and receipts, Add → editor.|
-|Planning|Budgets → currency-wide monthly and wallet limits, savings goals → emergency designation and contribution history, recurring transactions → schedules and occurrences.|
-|Obligations|Debts and loans → outstanding principal, repayments and history. Upcoming payments → dated obligations. Local reminders → Android notification preferences.|
-|Advanced finance|Projects → assignments, allocations and categories. Insights → chart periods. Detailed reports → filters, PDF and CSV. Reporting currency → original-currency reporting selection.|
-|Tools and security|Backup and restore → encrypted export or reviewed restore. Security → PIN and biometrics. Data export → transaction CSV. Settings → name, appearance, clear ledger and version.|
+|Financial planning|Available cash, wallet budgets, monthly spending limit, savings goals|
+|Accounts and records|Wallets and accounts, transfer money, categories, transactions and receipts, add a transaction|
+|Money management|Recurring transactions, debts and loans, upcoming payments, local reminders, projects, spending insights, financial reports, reporting currency|
+|Tools|Encrypted backup and restore, CSV data export|
+|Application|App security, settings including profile, appearance, ledger controls and version|
 
-## Design system
-
-Use a blue primary action (#2563EB) with a deeper pressed shade (#1D4ED8), paper surfaces on #F8FAFC and a #0B1220 dark canvas. Income, expense and warnings have their own semantic tokens. Direction, labels, signs and progress text carry meaning independently of hue. Use the bundled Jakarta typeface, an Arabic-script fallback, tabular monetary figures, the shared spacing scale, Material tap feedback and touch targets of at least 48 logical pixels for primary actions. Sheets and routed forms retain Android back behavior. Device-only discovery preferences are independent of financial backup data.
-
-The directory searches feature names, descriptions and synonyms first. A query of two or more characters also checks wallet names and transaction notes/categories. Up to three matching wallets and three transactions appear under separate headings. Record amounts retain their original currency. Pins, their order and the three most recently opened tools are stored locally. An optional getting-started sheet is available from an empty Home and from Explore at any time.
+The shell retains visited tab state. Android Back dismisses a picker or pushed route first, then returns from a secondary tab to Transactions. The available-cash screen preserves the earlier wallet dashboard. The former Activity browser remains available from the ledger search icon.

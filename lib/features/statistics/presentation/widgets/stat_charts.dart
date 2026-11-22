@@ -130,7 +130,7 @@ class IncomeExpenseChart extends StatelessWidget {
                 children: [
                   TextSpan(
                     text: 'In  ${Money.format(b.income, currency)}\n',
-                    style: AppTypography.amount(12.5, color: AppColors.emeraldBright),
+                    style: AppTypography.amount(12.5, color: AppColors.incomeLight),
                   ),
                   TextSpan(
                     text: 'Out ${Money.format(b.expense, currency)}',
@@ -155,7 +155,7 @@ class IncomeExpenseChart extends StatelessWidget {
                   gradient: const LinearGradient(
                     begin: Alignment.bottomCenter,
                     end: Alignment.topCenter,
-                    colors: [AppColors.emeraldDeep, AppColors.emeraldBright],
+                    colors: [AppColors.incomeBlue, AppColors.incomeLight],
                   ),
                 ),
                 BarChartRodData(
@@ -210,7 +210,7 @@ class SpendingTrendChart extends StatelessWidget {
     final maxV = buckets.fold<int>(0, (m, b) => math.max(m, b.expense));
     final axis = niceAxis(maxV);
     final step = math.max(1, (n / 6).ceil());
-    final lineColor = context.isDark ? AppColors.emeraldBright : AppColors.emerald;
+    final lineColor = context.palette.expense;
 
     final spots = [
       for (var i = 0; i < n; i++) FlSpot(i.toDouble(), buckets[i].expense.toDouble()),
@@ -360,11 +360,9 @@ class ExpenseDonut extends StatelessWidget {
               centerSpaceRadius: size / 2 - ring - 8,
               pieTouchData: PieTouchData(
                 touchCallback: (event, response) {
-                  if (!event.isInterestedForInteractions) return;
+                  if (event is! FlTapUpEvent) return;
                   final i = response?.touchedSection?.touchedSectionIndex;
-                  if (event is FlTapUpEvent) {
-                    onSelect(i == null || i < 0 || i == selected ? null : i);
-                  }
+                  onSelect(i == null || i < 0 || i >= shares.length || i == selected ? null : i);
                 },
               ),
               sections: [

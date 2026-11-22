@@ -14,16 +14,16 @@ abstract final class AppSpacing {
   static const double xxxl = 32;
 
   /// Horizontal padding used by every top-level screen.
-  static const double screen = 20;
+  static const double screen = 14;
 }
 
 /// Corner radii. Cards use [lg]/[xl], controls use [md], chips use [pill].
 abstract final class AppRadii {
-  static const double xs = 8;
-  static const double sm = 12;
-  static const double md = 16;
-  static const double lg = 22;
-  static const double xl = 28;
+  static const double xs = 4;
+  static const double sm = 6;
+  static const double md = 8;
+  static const double lg = 10;
+  static const double xl = 14;
   static const double pill = 999;
 
   static const card = BorderRadius.all(Radius.circular(lg));

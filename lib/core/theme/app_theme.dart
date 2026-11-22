@@ -57,20 +57,12 @@ abstract final class AppTheme {
         TargetPlatform.android: const FadeForwardsPageTransitionsBuilder(),
       }),
       appBarTheme: AppBarTheme(
-        backgroundColor: p.background,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        centerTitle: false,
-        foregroundColor: p.textPrimary,
-        titleTextStyle: text.titleLarge,
-        systemOverlayStyle: isDark
-            ? SystemUiOverlayStyle.light
-                .copyWith(statusBarColor: Colors.transparent)
-            : SystemUiOverlayStyle.dark
-                .copyWith(statusBarColor: Colors.transparent),
+        backgroundColor:isDark?p.surface:AppColors.primaryDark,foregroundColor:Colors.white,
+        surfaceTintColor:Colors.transparent,toolbarHeight:50,elevation:0,
+        titleTextStyle:text.titleLarge?.copyWith(color:Colors.white),
+        iconTheme:const IconThemeData(color:Colors.white),
+        systemOverlayStyle:SystemUiOverlayStyle.light,
       ),
-      dividerTheme: DividerThemeData(color: p.border, thickness: 1, space: 1),
       iconTheme: IconThemeData(color: p.textPrimary, size: 22),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
@@ -141,7 +133,7 @@ abstract final class AppTheme {
       ),
       cardTheme: CardThemeData(
         color: p.surface, surfaceTintColor: Colors.transparent, elevation: 0,
-        margin: const EdgeInsets.symmetric(vertical: 6),
+        margin: const EdgeInsets.symmetric(vertical: 3),
         shape: RoundedRectangleBorder(borderRadius: AppRadii.card, side: BorderSide(color: p.border)),
       ),
       filledButtonTheme: FilledButtonThemeData(style: FilledButton.styleFrom(
@@ -157,7 +149,7 @@ abstract final class AppTheme {
         elevation: 2, extendedTextStyle: text.labelLarge,
         shape: const RoundedRectangleBorder(borderRadius: AppRadii.control),
       ),
-      listTileTheme: ListTileThemeData(iconColor: p.textSecondary, contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6)),
+      listTileTheme: ListTileThemeData(minTileHeight:48, minVerticalPadding:4,iconColor:p.textSecondary,contentPadding:const EdgeInsets.symmetric(horizontal:12,vertical:2)),
       progressIndicatorTheme:
           const ProgressIndicatorThemeData(color: AppColors.primary),
       tooltipTheme: TooltipThemeData(

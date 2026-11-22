@@ -16,7 +16,7 @@ class WalletsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final data = ref.watch(walletsProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Wallets'), actions: [
+      appBar: AppBar(title: const Text('Accounts'), actions: [
         IconButton(tooltip: 'Transfer money', icon: const Icon(Icons.swap_horiz),
           onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
             builder: (_) => const TransferScreen()))),
@@ -29,29 +29,19 @@ class WalletsScreen extends ConsumerWidget {
         error: (error, _) => _Failure(onRetry: () => ref.invalidate(walletsProvider)),
         data: (snapshot) {
           if (snapshot == null) return const Center(child: Text('Wallet storage is unavailable'));
-          return ListView(padding: const EdgeInsets.fromLTRB(20, 12, 20, 100), children: [
-            Text('Balances by currency', style: Theme.of(context).textTheme.titleMedium),
+          final currencies=ref.watch(currencyBalancesProvider);
+          return ListView(padding:const EdgeInsets.fromLTRB(12,8,12,88),children:[
+            Text('Balances by currency',style:Theme.of(context).textTheme.titleMedium),
             const Text('Original amounts · no exchange rates applied'),
-            const SizedBox(height: 12),
-            Wrap(spacing:8,runSpacing:8,children:[for(final entry in ref.watch(currencyBalancesProvider).entries)
-              Chip(label:Text('${entry.key.code} · ${Money.format(entry.value,entry.key)}'))]),
-            const SizedBox(height:20),
-            Text('Your wallets',style:Theme.of(context).textTheme.titleMedium),
-            if (snapshot.wallets.isEmpty) const Padding(padding: EdgeInsets.all(24),
-              child: Text('Create your first wallet to start tracking.')),
-            for (final wallet in snapshot.wallets)
-              Card(child: ListTile(
-                leading: Icon(wallet.archived ? Icons.archive_outlined : Icons.account_balance_wallet_outlined,
-                    color: Theme.of(context).colorScheme.primary),
-                title: Text(wallet.name),
-                subtitle: Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-                  Text('${wallet.type.label} · ${wallet.currency.code}${wallet.archived ? ' · Archived' : ''}'),
-                  Text(Money.format(snapshot.balances[wallet.id]!,wallet.currency), style:Theme.of(context).textTheme.titleLarge),
-                  if((snapshot.reserved[wallet.id]??0)!=0)Text('Available ${Money.format(snapshot.available(wallet.id!),wallet.currency)} · Reserved ${Money.format(snapshot.reserved[wallet.id]!,wallet.currency)}'),
-                ]),trailing:const Icon(Icons.chevron_right),
-                onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
-                  builder: (_) => WalletDetailsScreen(walletId: wallet.id!))),
-              )),
+            if(snapshot.wallets.isEmpty)const ListTile(title:Text('Create your first wallet to start tracking.')),
+            for(final e in currencies.entries)...[
+              Container(color:Theme.of(context).colorScheme.surfaceContainerHighest,padding:const EdgeInsets.all(10),child:Wrap(alignment:WrapAlignment.spaceBetween,spacing:12,children:[Text(e.key.code),Text(Money.format(e.value,e.key),style:Theme.of(context).textTheme.titleMedium)])),
+              for(final w in snapshot.wallets.where((w)=>w.currency==e.key))...[
+                ListTile(dense:true,contentPadding:EdgeInsets.zero,leading:Icon(w.archived?Icons.archive_outlined:Icons.account_balance_wallet_outlined),title:Text(w.name),subtitle:Text('${w.type.label} · ${w.currency.code}${w.archived?" · Archived":""}'),trailing:ConstrainedBox(constraints:BoxConstraints(maxWidth:MediaQuery.sizeOf(context).width*.38),child:FittedBox(fit:BoxFit.scaleDown,child:Text(Money.format(snapshot.balances[w.id]!,w.currency)))),onTap:()=>Navigator.push(context,MaterialPageRoute<void>(builder:(_)=>WalletDetailsScreen(walletId:w.id!)))),
+                if((snapshot.reserved[w.id]??0)!=0)Padding(padding:const EdgeInsets.only(bottom:6),child:Text('Available ${Money.format(snapshot.available(w.id!),w.currency)} · Reserved ${Money.format(snapshot.reserved[w.id]!,w.currency)}')),
+                const Divider(height:1),
+              ],
+            ],
           ]);
         },
       ),
@@ -231,7 +221,10 @@ class WalletDetailsScreen extends ConsumerWidget {
 }
 
 class TransferScreen extends ConsumerStatefulWidget {
-  const TransferScreen({super.key});
+  const TransferScreen({super.key,this.initialDate,this.sourceId,this.onPosted});
+  final DateTime? initialDate;
+  final int? sourceId;
+  final void Function(DateTime,AppCurrency)? onPosted;
   @override
   ConsumerState<TransferScreen> createState() => _TransferState();
 }
@@ -240,8 +233,9 @@ class _TransferState extends ConsumerState<TransferScreen> {
   final _rate = TextEditingController();
   final _note = TextEditingController();
   int? _source, _destination;
+  late DateTime _date;
   @override
-  void initState(){super.initState();_source=ref.read(selectedWalletProvider)?.id;}
+  void initState(){super.initState();_source=widget.sourceId??ref.read(selectedWalletProvider)?.id;_date=widget.initialDate??DateTime.now();}
   String? _error;
   bool _saving = false;
   @override
@@ -268,7 +262,10 @@ class _TransferState extends ConsumerState<TransferScreen> {
             } catch (_) { /* Incomplete inputs are validated on submit. */ }
           }
           return ListView(padding: const EdgeInsets.all(24), children: [
-            const Text('Transfer between your wallets. This is not income or spending.'),
+            ListTile(contentPadding:EdgeInsets.zero,leading:const Icon(Icons.calendar_today_outlined),title:Text(MaterialLocalizations.of(context).formatMediumDate(_date)),subtitle:const Text('Transfer date'),onTap:_saving?null:()async{
+              final picked=await showDatePicker(context:context,initialDate:_date,firstDate:DateTime(_date.year<2000?_date.year:2000),lastDate:DateTime.now());
+              if(picked!=null && mounted)setState(()=>_date=DateTime(picked.year,picked.month,picked.day,_date.hour,_date.minute));
+            }),
             const SizedBox(height: 20),
             for (final isSource in [true, false]) Padding(padding: const EdgeInsets.only(bottom: 16),
               child: DropdownButtonFormField<int>(isExpanded: true, key: ValueKey('${isSource ? _source : _destination}-$isSource'),
@@ -303,9 +300,11 @@ class _TransferState extends ConsumerState<TransferScreen> {
               try {
                 await ref.read(walletRepositoryProvider)!.transfer(sourceId: source.id!,
                   destinationId: destination.id!, sourceMinor: minor,
-                  rate: same ? '1' : _rate.text, occurredAt: DateTime.now(), note: _note.text);
+                  rate: same ? '1' : _rate.text, occurredAt: _date, note: _note.text);
+                if(!context.mounted)return;
+                widget.onPosted?.call(_date,source.currency);
                 ref.invalidate(walletsProvider);
-                if (context.mounted) Navigator.pop(context);
+                if (context.mounted) {ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Transfer saved')));Navigator.pop(context,true);}
               } catch (e) {
                 if (mounted) setState(() { _saving = false; _error = e is FormatException || e is ArgumentError
                   ? e.toString() : 'Could not save transfer. Please try again.'; });
