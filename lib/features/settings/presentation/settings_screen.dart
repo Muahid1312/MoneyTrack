@@ -1,10 +1,7 @@
+import '../../../core/utils/money.dart';
 import '../../../data/storage/app_runtime.dart';
 import '../../documents/application/document_service.dart';
 import '../../reports/application/report_exporter.dart';
-import '../../statistics/presentation/statistics_screen.dart';
-import '../../reports/presentation/reports_screen.dart';
-import '../../security/presentation/security_widgets.dart';
-import '../../backup/presentation/backup_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,24 +11,21 @@ import '../../../core/constants/currency.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../../../core/theme/app_typography.dart';
-import '../../../core/utils/money.dart';
 import '../../../core/widgets/buttons.dart';
 import '../../../core/widgets/feedback.dart';
 import '../../../core/widgets/pressable.dart';
-import '../../budgets/presentation/budget_editor_sheet.dart';
-import '../../budgets/presentation/budget_screen.dart';
 import '../../planning/application/planning_providers.dart';
 import '../../planning/application/reminder_service.dart';
-import '../../planning/presentation/planning_screens.dart';
-import '../../projects/presentation/projects_screen.dart';
 import '../../transactions/application/transaction_filter.dart';
 import '../../transactions/application/transactions_controller.dart';
-import '../../wallets/presentation/wallets_screen.dart';
 import '../application/data_export_service.dart';
 import '../application/settings_controller.dart';
 
+enum SettingsPage { preferences, currency, export }
+
 class SettingsScreen extends ConsumerStatefulWidget {
-  const SettingsScreen({super.key});
+  const SettingsScreen({super.key, this.page = SettingsPage.preferences});
+  final SettingsPage page;
 
   @override
   ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
@@ -120,60 +114,37 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final count = ref.watch(allTransactionsProvider).length;
     final currency = settings.currency;
 
-    return ListView(
+    if (widget.page == SettingsPage.currency) {
+      return Scaffold(appBar: AppBar(title: const Text('Reporting currency')), body: ListView(children: [
+        ListTile(leading: const Icon(Icons.payments_outlined), title: Text(currency.name), subtitle: Text('Reports include entries in ${currency.code}. Choose a currency to change the view.'), trailing: const Icon(Icons.expand_more), onTap: _pickCurrency),
+      ]));
+    }
+    if (widget.page == SettingsPage.export) {
+      return Scaffold(appBar: AppBar(title: const Text('Data export')), body: ListView(children: [
+        const Padding(padding: EdgeInsets.all(20), child: Text('Share your transaction history as a spreadsheet. Use encrypted backup to restore a full ledger.')),
+          Builder(
+            builder: (tileContext) => _Tile(
+              icon: Icons.ios_share_rounded,
+              iconColor: const Color(0xFF0EA5E9),
+              title: 'Export to CSV',
+              subtitle: count == 0 ? 'No transactions yet' : '$count transactions',
+              trailing: _exporting
+                  ? const SizedBox(
+                      width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                  : null,
+              onTap: _exporting || _clearing ? null : () => _export(tileContext),
+            ),
+          ),
+      ]));
+    }
+    return Scaffold(appBar: AppBar(title: const Text('Settings')), body: ListView(
       padding: EdgeInsets.fromLTRB(
         AppSpacing.screen,
-        MediaQuery.paddingOf(context).top + AppSpacing.lg,
+        0,
         AppSpacing.screen,
         AppShell.contentBottomInset(context),
       ),
       children: [
-        Text('More', style: t.headlineMedium),
-        const SizedBox(height: AppSpacing.xxl),
-
-        const _GroupLabel('Money'),
-        _Group(children: [
-          _Tile(icon: Icons.bar_chart_outlined, iconColor: AppColors.emerald,
-            title: 'Spending insights', subtitle: 'Category breakdown & period comparisons',
-            onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => Scaffold(appBar: AppBar(), body: const StatisticsScreen())))),
-          _Tile(icon: Icons.analytics_outlined, iconColor: AppColors.emerald,
-            title: 'Financial reports', subtitle: 'Filters, charts, PDF & CSV exports',
-            onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const ReportsScreen()))),
-          _Tile(icon: Icons.event_note_outlined, iconColor: AppColors.emerald,
-            title: 'Planning', subtitle: 'Debts, savings & recurring entries',
-            onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const PlanningScreen()))),
-          _Tile(icon: Icons.folder_outlined, iconColor: AppColors.emerald,
-            title: 'Projects', subtitle: 'Personal & business project finances',
-            onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const ProjectsScreen()))),
-          _Tile(icon: Icons.account_balance_wallet_outlined,
-            iconColor: AppColors.emerald, title: 'Wallets',
-            subtitle: 'Accounts, balances & transfers',
-            onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const WalletsScreen()))),
-          _Tile(
-            icon: Icons.payments_outlined,
-            iconColor: const Color(0xFF3B82F6),
-            title: 'Reporting currency',
-            subtitle: '${currency.name} · totals include only this currency',
-            value: '${currency.code} ${currency.symbol}',
-            onTap: _pickCurrency,
-          ),
-          _Tile(
-            icon: Icons.track_changes_rounded,
-            iconColor: AppColors.emerald,
-            title: 'Monthly budget',
-            subtitle: settings.hasBudget ? 'Alerts at 80% & 100%' : 'Not set',
-            value: settings.hasBudget ? Money.format(settings.monthlyBudgetMinor, currency) : 'Set',
-            onTap: () => showBudgetEditor(context),
-          ),
-          _Tile(
-            icon: Icons.donut_large_rounded,
-            iconColor: const Color(0xFF8B5CF6),
-            title: 'Budget overview',
-            subtitle: 'Remaining & categories',
-            onTap: () => Navigator.of(context).push(BudgetScreen.route()),
-          ),
-        ]),
-
         const _GroupLabel('Preferences'),
         // Profile
         Pressable(
@@ -199,9 +170,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: const LinearGradient(
-                      colors: [AppColors.emeraldBright, AppColors.emeraldDeep],
+                      colors: [AppColors.primaryLight, AppColors.primaryDark],
                     ),
-                    boxShadow: AppShadows.glow(AppColors.emerald, strength: 0.3),
+                    boxShadow: AppShadows.glow(AppColors.primary, strength: 0.3),
                   ),
                   alignment: Alignment.center,
                   child: settings.userName.isEmpty
@@ -255,28 +226,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
         ]),
 
-        const _GroupLabel('Privacy & backup'),
+        const _GroupLabel('Device data'),
         _Group(children: [
-          _Tile(icon: Icons.lock_outline, iconColor: AppColors.emerald, title: 'App security', subtitle: 'PIN, biometrics & automatic lock',
-            onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const SecuritySettingsScreen()))),
-          _Tile(icon: Icons.enhanced_encryption_outlined, iconColor: AppColors.emerald, title: 'Encrypted backup & restore', subtitle: 'Portable, passphrase-protected data',
-            onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const BackupScreen()))),
-        ]),
-        const _GroupLabel('Data'),
-        _Group(children: [
-          Builder(
-            builder: (tileContext) => _Tile(
-              icon: Icons.ios_share_rounded,
-              iconColor: const Color(0xFF0EA5E9),
-              title: 'Export to CSV',
-              subtitle: count == 0 ? 'No transactions yet' : '$count transactions',
-              trailing: _exporting
-                  ? const SizedBox(
-                      width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                  : null,
-              onTap: _exporting || _clearing ? null : () => _export(tileContext),
-            ),
-          ),
           _Tile(
             icon: Icons.delete_outline_rounded,
             iconColor: p.expense,
@@ -299,11 +250,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ]),
         const SizedBox(height: AppSpacing.xxl),
         Center(
-          child: Text('Your data never leaves this device.',
+          child: Text('MoneyTrack stores your ledger on this device.',
               style: t.bodySmall?.copyWith(color: p.textTertiary)),
         ),
       ],
-    );
+    ));
   }
 }
 
@@ -350,7 +301,6 @@ class _Tile extends StatelessWidget {
     required this.iconColor,
     required this.title,
     this.subtitle,
-    this.value,
     this.trailing,
     this.titleColor,
     this.onTap,
@@ -360,7 +310,6 @@ class _Tile extends StatelessWidget {
   final Color iconColor;
   final String title;
   final String? subtitle;
-  final String? value;
   final Widget? trailing;
   final Color? titleColor;
   final VoidCallback? onTap;
@@ -405,16 +354,6 @@ class _Tile extends StatelessWidget {
                   ],
                 ),
               ),
-              if (value != null) ...[
-                const SizedBox(width: 8),
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 120),
-                  child: Text(value!,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: t.labelLarge?.copyWith(color: p.textSecondary)),
-                ),
-              ],
               const SizedBox(width: 4),
               trailing ?? Icon(Icons.chevron_right_rounded, color: p.textTertiary),
             ],
@@ -472,7 +411,7 @@ class _CurrencySheet extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 decoration: BoxDecoration(
                   color: c == current
-                      ? AppColors.emerald.withValues(alpha: context.isDark ? 0.14 : 0.08)
+                      ? AppColors.primary.withValues(alpha: context.isDark ? 0.14 : 0.08)
                       : Colors.transparent,
                   borderRadius: BorderRadius.circular(16),
                 ),
@@ -501,7 +440,7 @@ class _CurrencySheet extends StatelessWidget {
                       ),
                     ),
                     if (c == current)
-                      const Icon(Icons.check_circle_rounded, color: AppColors.emerald),
+                      const Icon(Icons.check_circle_rounded, color: AppColors.primary),
                   ],
                 ),
               ),
@@ -574,7 +513,7 @@ class _AboutSheet extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(icon, size: 20, color: context.isDark ? AppColors.emeraldBright : AppColors.emeraldDeep),
+              Icon(icon, size: 20, color: context.isDark ? AppColors.primaryLight : AppColors.primaryDark),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -665,11 +604,11 @@ class _LogoPainter extends CustomPainter {
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round
         ..shader = const LinearGradient(
-          colors: [AppColors.emeraldBright, AppColors.emerald],
+          colors: [AppColors.primaryLight, AppColors.primary],
         ).createShader(Offset.zero & s),
     );
     canvas.drawCircle(Offset(s.width * 0.76, s.height * 0.30), s.width * 0.06,
-        Paint()..color = AppColors.emeraldBright);
+        Paint()..color = AppColors.primaryLight);
   }
 
   @override

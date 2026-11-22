@@ -14,6 +14,7 @@ import '../../../data/models/transaction.dart';
 import '../../../data/models/transaction_type.dart';
 import '../../settings/application/settings_controller.dart';
 import '../application/transactions_controller.dart';
+import '../../wallets/application/wallet_providers.dart';
 import 'transaction_editor_screen.dart';
 
 /// Shared flows for creating, editing and deleting transactions so every
@@ -87,6 +88,7 @@ abstract final class TransactionActions {
   static Future<void> showActions(
       BuildContext context, WidgetRef ref, TransactionModel tx,
       {Future<void> Function(TransactionModel tx)? animateOut}) async {
+    final wallet = ref.read(walletsProvider).valueOrNull?.wallets.where((w)=>w.id==tx.walletId).firstOrNull;
     final action = await showAppSheet<String>(
       context,
       builder: (ctx) {
@@ -104,6 +106,7 @@ abstract final class TransactionActions {
               const SizedBox(height: 4),
               Text('${tx.category.name} · ${Dates.shortDate(tx.occurredAt)}',
                   style: t.bodySmall?.copyWith(color: p.textSecondary)),
+              Text([tx.type.label,if(wallet!=null)wallet.name,currency.code].join(' · ')),
               const SizedBox(height: 12),
               Text(Money.format(tx.signedMinor, currency, signed: true),
                   style: AppTypography.amount(28,

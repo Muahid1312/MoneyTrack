@@ -21,16 +21,6 @@ class MoneyTrackApp extends ConsumerWidget {
       themeMode: mode,
       themeAnimationDuration: const Duration(milliseconds: 380),
       themeAnimationCurve: Curves.easeOutCubic,
-      builder: (context, child) {
-        // Respect user font scaling, but keep layouts intact at extremes.
-        final mq = MediaQuery.of(context);
-        return MediaQuery(
-          data: mq.copyWith(
-            textScaler: mq.textScaler.clamp(minScaleFactor: 0.9, maxScaleFactor: 1.3),
-          ),
-          child: child!,
-        );
-      },
       home: const PlanningLifecycle(child: AppShell()),
     );
   }

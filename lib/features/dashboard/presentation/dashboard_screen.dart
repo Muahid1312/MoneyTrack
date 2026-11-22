@@ -1,4 +1,9 @@
 import '../../transactions/application/transaction_filter.dart';
+import '../../planning/application/planning_providers.dart';
+import '../../planning/presentation/upcoming_screen.dart';
+import '../../statistics/domain/finance_calculator.dart';
+import '../../explore/explore_screen.dart';
+import '../../../core/utils/money.dart';
 import 'widgets/dashboard_context.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,7 +20,6 @@ import '../../../core/widgets/transaction_tile.dart';
 import '../../../data/models/transaction_type.dart';
 import '../../../data/repositories/providers.dart';
 import '../../budgets/application/budget_providers.dart';
-import '../../budgets/domain/budget_calculator.dart';
 import '../../budgets/presentation/wallet_budget_panel.dart';
 import '../../budgets/presentation/budget_editor_sheet.dart';
 import '../../budgets/presentation/budget_screen.dart';
@@ -39,7 +43,7 @@ class DashboardScreen extends ConsumerWidget {
     final settings = ref.watch(settingsProvider);
     final currency = settings.currency;
     final summary = ref.watch(dashboardSummaryProvider);
-    final weekly = ref.watch(weeklySpendingProvider);
+
     final budget = ref.watch(budgetStatusProvider);
     final wallet = ref.watch(selectedWalletProvider);
     final recent = wallet == null
@@ -51,7 +55,16 @@ class DashboardScreen extends ConsumerWidget {
               .toList();
     final marker = ref.watch(lastChangedTransactionProvider);
     final now = ref.watch(clockProvider)();
-    final period = ref.watch(dashboardPeriodProvider);
+    final due = dueItems(ref.watch(planningProvider).valueOrNull);
+    final homeCurrency = wallet?.currency ?? currency;
+    final totals = FinanceCalculator.totals(
+      ref
+          .watch(allTransactionsProvider)
+          .where((t) => t.currency == homeCurrency),
+      span: DateSpan.month(now),
+    );
+    String amount(int n) =>
+        settings.hideBalance ? '••••' : Money.format(n, homeCurrency);
     final name = settings.userName.trim();
 
     void openBudget() => Navigator.of(context).push(BudgetScreen.route());
@@ -90,55 +103,93 @@ class DashboardScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: AppSpacing.md),
                 WalletBudgetPanel(
-                  actions: Row(
+                  actions: Column(
                     children: [
-                      Expanded(
-                        child: _QuickAction(
-                          label: 'Add expense',
-                          icon: Icons.north_east_rounded,
-                          color: p.expense,
-                          background: p.expenseSoft,
-                          onTap: () => TransactionActions.openEditor(
-                            context,
-                            ref,
-                            initialType: TransactionType.expense,
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _QuickAction(
+                              label: 'Add expense',
+                              icon: Icons.north_east_rounded,
+                              color: p.expense,
+                              background: p.expenseSoft,
+                              onTap: () => TransactionActions.openEditor(
+                                context,
+                                ref,
+                                initialType: TransactionType.expense,
+                              ),
+                            ),
                           ),
-                        ),
+                          const SizedBox(width: AppSpacing.md),
+                          Expanded(
+                            child: _QuickAction(
+                              label: 'Add income',
+                              icon: Icons.south_west_rounded,
+                              color: p.income,
+                              background: p.incomeSoft,
+                              onTap: () => TransactionActions.openEditor(
+                                context,
+                                ref,
+                                initialType: TransactionType.income,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: AppSpacing.md),
-                      Expanded(
-                        child: _QuickAction(
-                          label: 'Add income',
-                          icon: Icons.south_west_rounded,
-                          color: p.income,
-                          background: p.incomeSoft,
-                          onTap: () => TransactionActions.openEditor(
+                      Align(
+                        alignment: AlignmentDirectional.centerStart,
+                        child: TextButton.icon(
+                          icon: const Icon(Icons.swap_horiz),
+                          label: const Text('Transfer money'),
+                          onPressed: () => Navigator.push(
                             context,
-                            ref,
-                            initialType: TransactionType.income,
+                            MaterialPageRoute<void>(
+                              builder: (_) => const TransferScreen(),
+                            ),
                           ),
                         ),
                       ),
                     ],
                   ),
                 ),
-                AnimatedSize(
-                  duration: AppDurations.medium,
-                  curve: AppCurves.standard,
-                  child:
-                      (budget.level == BudgetLevel.approaching ||
-                          budget.level == BudgetLevel.exceeded)
-                      ? Padding(
-                          padding: const EdgeInsets.only(top: AppSpacing.lg),
-                          child: BudgetWarningBanner(
-                            status: budget,
-                            currency: currency,
-                            onTap: openBudget,
-                          ),
-                        )
-                      : const SizedBox(width: double.infinity),
+                const SizedBox(height: 12),
+                SectionHeader(
+                  title: DateFormat('MMMM y').format(now),
+                  subtitle: 'All wallets · ${homeCurrency.code}',
                 ),
-
+                const SizedBox(height: 8),
+                AppCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (ref.watch(transactionsProvider).hasError)
+                        TextButton(
+                          onPressed: () => ref.invalidate(transactionsProvider),
+                          child: const Text('Retry monthly totals'),
+                        )
+                      else if (ref.watch(transactionsProvider).isLoading)
+                        const LinearProgressIndicator()
+                      else ...[
+                        Text(
+                          'Income   ${amount(totals.income)}',
+                          style: t.titleMedium?.copyWith(color: p.income),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Expenses   ${amount(totals.expense)}',
+                          style: t.titleMedium,
+                        ),
+                      ],
+                      if (budget.hasBudget)
+                        TextButton(
+                          onPressed: openBudget,
+                          child: Text(
+                            'Monthly budget · ${currency.code} · ${settings.hideBalance ? "••••" : Money.format(budget.remainingMinor.abs(), currency)} ${budget.remainingMinor < 0 ? "over" : "left"}',
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
                 const SizedBox(height: AppSpacing.xxl),
                 SectionHeader(
                   title: 'Recent activity',
@@ -146,6 +197,8 @@ class DashboardScreen extends ConsumerWidget {
                   onAction: () {
                     ref.read(activityCurrencyChoiceProvider.notifier).state =
                         wallet?.currency ?? currency;
+                    ref.read(transactionFilterProvider.notifier).state =
+                        TransactionFilter(walletId: wallet?.id);
                     ref.read(shellTabProvider.notifier).state = 1;
                   },
                 ),
@@ -196,10 +249,10 @@ class DashboardScreen extends ConsumerWidget {
                                       now,
                                     ),
                                     highlight: isFreshChange(marker, tx.id),
-                                    onTap: () => TransactionActions.openEditor(
+                                    onTap: () => TransactionActions.showActions(
                                       context,
                                       ref,
-                                      existing: tx,
+                                      tx,
                                     ),
                                     onLongPress: () =>
                                         TransactionActions.showActions(
@@ -214,111 +267,16 @@ class DashboardScreen extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: AppSpacing.lg),
-                ExpansionTile(
-                  key: const PageStorageKey('home-overview'),
-                  title: const Text('More insights'),
-                  subtitle: Text(
-                    'Spending and monthly budget · ${currency.code}',
+                if (due.isNotEmpty) ...[
+                  const SectionHeader(title: 'Next due'),
+                  Card(child: DueTile(due.first)),
+                ],
+                if (ref.watch(allTransactionsProvider).isEmpty)
+                  TextButton.icon(
+                    onPressed: () => showQuickGuide(context),
+                    icon: const Icon(Icons.help_outline),
+                    label: const Text('Getting started'),
                   ),
-                  children: [
-                    DropdownButtonFormField<int>(
-                      isExpanded: true,
-                      initialValue: ref.watch(dashboardMonthOffsetProvider),
-                      decoration: const InputDecoration(
-                        labelText: 'Income & expense period',
-                        prefixIcon: Icon(Icons.date_range_outlined),
-                      ),
-                      items: [
-                        for (final offset in [0, -1, -2])
-                          DropdownMenuItem(
-                            value: offset,
-                            child: Text(
-                              DateFormat(
-                                'MMMM y',
-                              ).format(DateTime(now.year, now.month + offset)),
-                            ),
-                          ),
-                      ],
-                      onChanged: (value) {
-                        if (value != null) {
-                          ref
-                                  .read(dashboardMonthOffsetProvider.notifier)
-                                  .state =
-                              value;
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    if (ref.watch(transactionsProvider).hasError)
-                      AppCard(
-                        child: Column(
-                          children: [
-                            const Text('Could not load transaction summaries'),
-                            TextButton(
-                              onPressed: () =>
-                                  ref.invalidate(transactionsProvider),
-                              child: const Text('Retry'),
-                            ),
-                          ],
-                        ),
-                      )
-                    else if (ref.watch(walletRepositoryProvider) != null &&
-                        ref.watch(walletsProvider).hasError)
-                      AppCard(
-                        child: Column(
-                          children: [
-                            const Text('Could not load wallet balances'),
-                            TextButton(
-                              onPressed: () => ref.invalidate(walletsProvider),
-                              child: const Text('Retry'),
-                            ),
-                          ],
-                        ),
-                      )
-                    else if (ref.watch(walletRepositoryProvider) != null &&
-                        ref.watch(walletsProvider).valueOrNull == null)
-                      const Center(child: CircularProgressIndicator())
-                    else
-                      BalanceCard(
-                        balanceMinor: summary.balanceMinor,
-                        month: summary.month,
-                        previousMonth: summary.previousMonth,
-                        currency: currency,
-                        hidden: settings.hideBalance,
-                        onToggleHidden: () => ref
-                            .read(settingsProvider.notifier)
-                            .toggleHideBalance(),
-                        monthLabel: DateFormat('MMM y').format(period),
-                      ),
-                    const SizedBox(height: AppSpacing.lg),
-
-                    const SizedBox(height: AppSpacing.xxl),
-                    const SectionHeader(
-                      title: 'Weekly spending',
-                      subtitle: 'Tap a bar for details',
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    WeeklySpendingCard(data: weekly, currency: currency),
-
-                    const SizedBox(height: AppSpacing.xxl),
-                    SectionHeader(
-                      title: 'Budget',
-                      subtitle: DateFormat('MMMM y').format(now),
-                      actionLabel: budget.hasBudget ? 'Details' : null,
-                      onAction: budget.hasBudget ? openBudget : null,
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    BudgetSummaryCard(
-                      status: budget,
-                      currency: currency,
-                      onOpen: openBudget,
-                      onSetBudget: () => showBudgetEditor(context),
-                    ),
-
-                    const SizedBox(height: AppSpacing.xxl),
-                    const DashboardContext(),
-                  ],
-                ),
               ],
             ),
           ),
@@ -372,6 +330,120 @@ class _QuickAction extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class MonthlyOverviewScreen extends ConsumerWidget {
+  const MonthlyOverviewScreen({super.key});
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final now = ref.watch(clockProvider)();
+    final settings = ref.watch(settingsProvider);
+    final currency = settings.currency;
+    final budget = ref.watch(budgetStatusProvider);
+    final weekly = ref.watch(weeklySpendingProvider);
+    final summary = ref.watch(dashboardSummaryProvider);
+    final period = ref.watch(dashboardPeriodProvider);
+    void openBudget() => Navigator.push(context, BudgetScreen.route());
+    return Scaffold(
+      appBar: AppBar(title: const Text('Monthly overview')),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          DropdownButtonFormField<int>(
+            isExpanded: true,
+            initialValue: ref.watch(dashboardMonthOffsetProvider),
+            decoration: const InputDecoration(
+              labelText: 'Income & expense period',
+              prefixIcon: Icon(Icons.date_range_outlined),
+            ),
+            items: [
+              for (final offset in [0, -1, -2])
+                DropdownMenuItem(
+                  value: offset,
+                  child: Text(
+                    DateFormat(
+                      'MMMM y',
+                    ).format(DateTime(now.year, now.month + offset)),
+                  ),
+                ),
+            ],
+            onChanged: (value) {
+              if (value != null) {
+                ref.read(dashboardMonthOffsetProvider.notifier).state = value;
+              }
+            },
+          ),
+          const SizedBox(height: 16),
+          if (ref.watch(transactionsProvider).hasError)
+            AppCard(
+              child: Column(
+                children: [
+                  const Text('Could not load transaction summaries'),
+                  TextButton(
+                    onPressed: () => ref.invalidate(transactionsProvider),
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            )
+          else if (ref.watch(walletRepositoryProvider) != null &&
+              ref.watch(walletsProvider).hasError)
+            AppCard(
+              child: Column(
+                children: [
+                  const Text('Could not load wallet balances'),
+                  TextButton(
+                    onPressed: () => ref.invalidate(walletsProvider),
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            )
+          else if (ref.watch(walletRepositoryProvider) != null &&
+              ref.watch(walletsProvider).valueOrNull == null)
+            const Center(child: CircularProgressIndicator())
+          else
+            BalanceCard(
+              balanceMinor: summary.balanceMinor,
+              month: summary.month,
+              previousMonth: summary.previousMonth,
+              currency: currency,
+              hidden: settings.hideBalance,
+              onToggleHidden: () =>
+                  ref.read(settingsProvider.notifier).toggleHideBalance(),
+              monthLabel: DateFormat('MMM y').format(period),
+            ),
+          const SizedBox(height: AppSpacing.lg),
+
+          const SizedBox(height: AppSpacing.xxl),
+          const SectionHeader(
+            title: 'Weekly spending',
+            subtitle: 'Tap a bar for details',
+          ),
+          const SizedBox(height: AppSpacing.md),
+          WeeklySpendingCard(data: weekly, currency: currency),
+
+          const SizedBox(height: AppSpacing.xxl),
+          SectionHeader(
+            title: 'Budget',
+            subtitle: DateFormat('MMMM y').format(now),
+            actionLabel: budget.hasBudget ? 'Details' : null,
+            onAction: budget.hasBudget ? openBudget : null,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          BudgetSummaryCard(
+            status: budget,
+            currency: currency,
+            onOpen: openBudget,
+            onSetBudget: () => showBudgetEditor(context),
+          ),
+
+          const SizedBox(height: AppSpacing.xxl),
+          const DashboardContext(),
+        ],
       ),
     );
   }

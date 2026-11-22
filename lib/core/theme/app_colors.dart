@@ -3,18 +3,22 @@ import 'package:flutter/material.dart';
 /// Brand colour primitives. Screens should prefer the semantic
 /// [AppPalette] (via `context.palette`) over these raw values.
 abstract final class AppColors {
+  static const primary = Color(0xFF2563EB);
+  static const primaryDark = Color(0xFF1D4ED8);
+  static const primaryLight = Color(0xFF93B4FF);
+
   // Midnight navy scale
-  static const navy950 = Color(0xFF0A0F1C);
-  static const navy900 = Color(0xFF101828);
+  static const navy950 = Color(0xFF0B1220);
+  static const navy900 = Color(0xFF0F172A);
   static const navy800 = Color(0xFF1D2939);
   static const navy700 = Color(0xFF344054);
   static const navy600 = Color(0xFF475467);
 
   // Slate / neutral scale
-  static const slate500 = Color(0xFF667085);
+  static const slate500 = Color(0xFF64748B);
   static const slate400 = Color(0xFF98A2B3);
   static const slate300 = Color(0xFFD0D5DD);
-  static const slate200 = Color(0xFFE4E7EC);
+  static const slate200 = Color(0xFFE2E8F0);
   static const slate100 = Color(0xFFF2F4F7);
   static const offWhite = Color(0xFFF8FAFC);
   static const white = Color(0xFFFFFFFF);
@@ -83,14 +87,14 @@ class AppPalette extends ThemeExtension<AppPalette> {
     border: AppColors.slate200,
     textPrimary: AppColors.navy900,
     textSecondary: AppColors.slate500,
-    textTertiary: AppColors.slate400,
-    income: AppColors.emeraldDeep,
+    textTertiary: AppColors.slate500,
+    income: Color(0xFF15803D),
     incomeSoft: Color(0xFFE7F8F1),
-    expense: Color(0xFFE11D48),
+    expense: Color(0xFFDC2626),
     expenseSoft: Color(0xFFFDECEF),
     warning: Color(0xFFD97706),
     warningSoft: Color(0xFFFEF3E2),
-    shadow: Color(0xFF101828),
+    shadow: Color(0xFF0F172A),
     navBar: AppColors.white,
     chartGrid: Color(0xFFEDF0F4),
     chartTrack: Color(0xFFF1F4F8),
@@ -98,13 +102,13 @@ class AppPalette extends ThemeExtension<AppPalette> {
 
   static const dark = AppPalette(
     background: AppColors.navy950,
-    surface: AppColors.navy900,
+    surface: Color(0xFF151E2E),
     surfaceMuted: Color(0xFF172133),
     surfaceElevated: AppColors.navy800,
     border: Color(0xFF223047),
-    textPrimary: Color(0xFFF5F7FA),
-    textSecondary: AppColors.slate400,
-    textTertiary: Color(0xFF6B7891),
+    textPrimary: Color(0xFFF8FAFC),
+    textSecondary: Color(0xFF94A3B8),
+    textTertiary: Color(0xFF94A3B8),
     income: AppColors.emeraldBright,
     incomeSoft: Color(0xFF0E2A26),
     expense: AppColors.roseSoft,

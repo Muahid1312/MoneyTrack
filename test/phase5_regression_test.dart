@@ -154,8 +154,8 @@ void main() {
       tester.platformDispatcher.textScaleFactorTestValue=1.6;
       await tester.pumpWidget(UncontrolledProviderScope(container:c,child:const MoneyTrackApp()));
       await tester.pumpAndSettle();expect(tester.takeException(),isNull);
-      for(final tab in ['Activity','Savings','More','Home']) {
-        await tester.tap(find.bySemanticsLabel(tab).last);await tester.pump();
+      for(final tab in ['Activity','Insights','Explore','Home']) {
+        await tester.tap(find.widgetWithText(NavigationDestination,tab));await tester.pump();
         await tester.runAsync(() async { await Future<void>.delayed(Duration.zero); });await tester.pump(const Duration(milliseconds:500));
         expect(tester.takeException(),isNull,reason:tab);
       }

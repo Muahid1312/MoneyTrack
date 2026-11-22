@@ -33,16 +33,10 @@ class _PlanningState extends ConsumerState<PlanningScreen> {
   @override
   void initState(){super.initState();ReminderService().active().then((v){if(mounted)setState(()=>_enabled=v);});}
   @override
-  Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:const Text('Planning')),
+  Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:const Text('Local reminders')),
     body:ListView(padding:const EdgeInsets.all(20),children:[
-      Text('Plan ahead',style:Theme.of(context).textTheme.headlineMedium),
-      const Text('Debt principal, reserved savings and scheduled ledger entries stay separate from everyday income and spending.'),
-      const SizedBox(height:20),
-      for(final item in [(Icons.handshake_outlined,'Debts & loans',const DebtsScreen()),
-        (Icons.savings_outlined,'Savings goals',const GoalsScreen()),(Icons.event_repeat,'Recurring & upcoming',const RecurringScreen())])
-        Card(child:ListTile(leading:Icon(item.$1),title:Text(item.$2),trailing:const Icon(Icons.chevron_right),
-          onTap:()=>Navigator.push(context,MaterialPageRoute<void>(builder:(_)=>item.$3)))),
-      const SizedBox(height:20),
+      const Text('Get a local notification when a debt, goal or recurring entry is due.'),
+      const SizedBox(height:16),
       if(ref.watch(planningBusyProvider))const LinearProgressIndicator(),
       if(ref.watch(planningErrorProvider)!=null)Text(ref.watch(planningErrorProvider)!),
       OutlinedButton.icon(icon:const Icon(Icons.sync),label:const Text('Reconcile due entries'),
@@ -80,13 +74,17 @@ class _DebtsState extends ConsumerState<DebtsScreen> {
     body:ref.watch(planningProvider).when(loading:()=>const Center(child:CircularProgressIndicator()),error:(_,_)=>planningError(ref),data:(data){
       final debts=data?.debts.where((d)=>_status=='All'||d.status(DateTime.now())==_status).toList()??<Debt>[];
       return ListView(padding:const EdgeInsets.fromLTRB(20,16,20,100),children:[
+        const Text('Track money you owe and money others owe you. Open a record to see repayments.'),
+        const SizedBox(height:16),
         DropdownButtonFormField<String>(isExpanded: true, initialValue:_status,decoration:const InputDecoration(labelText:'Status'),
           items:[for(final s in ['All','Active','Partially paid','Overdue','Settled'])DropdownMenuItem(value:s,child:Text(s))],onChanged:(v)=>setState(()=>_status=v!)),
         const SizedBox(height:16),if(debts.isEmpty)const Text('No matching debts. Record borrowing or lending to begin.'),
-        for(final d in debts)Card(child:ListTile(title:Text(d.contact),
+        for(final direction in [true,false])if(debts.any((d)=>d.borrowed==direction))...[
+        Padding(padding:const EdgeInsets.symmetric(vertical:12),child:Text(direction?'Money I owe':'Money owed to me',style:Theme.of(context).textTheme.titleMedium)),
+        for(final d in debts.where((d)=>d.borrowed==direction))Card(child:ListTile(title:Text(d.contact),
           subtitle:Text('${d.borrowed?'Money I owe':'Money owed to me'} · ${d.status(DateTime.now())}${d.dueDate==null?'':'\nDue ${d.dueDate}'}'),
           trailing:Text('${Money.format(d.remainingMinor,d.currency)}\n${d.currency.code}'),
-          onTap:()=>Navigator.push(context,MaterialPageRoute<void>(builder:(_)=>DebtDetailScreen(id:d.id)))))
+          onTap:()=>Navigator.push(context,MaterialPageRoute<void>(builder:(_)=>DebtDetailScreen(id:d.id)))))]
       ]);
     }));
 }
@@ -131,13 +129,14 @@ class GoalsScreen extends ConsumerWidget {
     floatingActionButton:FloatingActionButton.extended(icon:const Icon(Icons.add),label:const Text('New goal'),
       onPressed:()=>Navigator.push(context,MaterialPageRoute<void>(builder:(_)=>const GoalForm()))),
     body:ref.watch(planningProvider).when(loading:()=>const Center(child:CircularProgressIndicator()),error:(_,_)=>planningError(ref),data:(data)=>ListView(padding:const EdgeInsets.fromLTRB(20,16,20,100),children:[
-      const Text('Set money aside in a wallet for a goal or an emergency fund.'),
+      const Text('Reserve part of a wallet for a goal or emergency. The cash stays in that wallet until you spend it.'),
       if(data?.goals.isEmpty??true)const Padding(padding:EdgeInsets.all(24),child:Text('No savings goals yet.')),
       for(final g in data?.goals??<SavingsGoal>[])Card(child:ListTile(leading:Icon(const {'savings':Icons.savings_outlined,'home':Icons.home_outlined,'travel':Icons.flight_outlined,'education':Icons.school_outlined}[g.row['icon']]??Icons.savings_outlined,color:Color(g.row['color'] as int)),
         title:Text(g.name),subtitle:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
           Text('${g.emergency?'Emergency fund · ':''}${g.status} · ${g.currency.code}${g.targetDate==null?'':' · Due ${g.targetDate}'}'),
           LinearProgressIndicator(value:g.progress.clamp(0.0,1.0).toDouble()),
-          Text('${Money.format(g.allocatedMinor,g.currency)} / ${Money.format(g.targetMinor,g.currency)}')]),
+          Text('${Money.format(g.allocatedMinor,g.currency)} saved of ${Money.format(g.targetMinor,g.currency)}'),
+          Text('${Money.format((g.targetMinor-g.allocatedMinor).clamp(0,g.targetMinor),g.currency)} to go')]),
         onTap:()=>Navigator.push(context,MaterialPageRoute<void>(builder:(_)=>GoalDetailScreen(id:g.id)))))
     ])));
 }
@@ -212,7 +211,7 @@ class RecurringScreen extends ConsumerWidget {
       if(data==null)return const Center(child:Text('Planning storage unavailable'));
       final pending=data.occurrences.where((o)=>o.status=='pending').toList();
       return ListView(padding:const EdgeInsets.fromLTRB(20,16,20,100),children:[
-        const Text('Due items are reminders to review your ledger. Recording confirms a bookkeeping entry; it does not make a bank payment.'),
+        const Text('Choose automatic recording or review each entry when it is due. Payments are made separately.'),
         OutlinedButton.icon(icon:const Icon(Icons.sync),label:const Text('Check missed occurrences'),
           onPressed:()=>planningAction(context,ref,()=>ref.read(planningRepositoryProvider)!.reconcile())),
         Text('Awaiting confirmation',style:Theme.of(context).textTheme.titleLarge),
@@ -220,7 +219,7 @@ class RecurringScreen extends ConsumerWidget {
         for(final o in pending)_OccurrenceTile(occurrence:o),
         const Divider(height:32),Text('Rules & next due dates',style:Theme.of(context).textTheme.titleLarge),
         if(data.rules.isEmpty)const Text('No recurring rules yet. Salary, rent and subscriptions can be scheduled here.'),
-        for(final r in data.rules)Card(child:Column(children:[ListTile(title:Text(r.name),
+        for(final r in data.rules)Card(child:Column(children:[ListTile(title:Text(r.name),leading:const Icon(Icons.repeat),
           subtitle:Text('${r.state}${r.finished?' · Finished':' · Next ${r.nextDate}'}\n${r.automatic?'Automatic ledger recording':'Confirmation required'} · ${r.row['frequency']}'),
           trailing:Text('${Money.format(r.amountMinor,r.currency)}\n${r.currency.code}'),
           onTap:r.state=='cancelled'?null:()=>Navigator.push(context,MaterialPageRoute<void>(builder:(_)=>RecurringForm(rule:r)))),

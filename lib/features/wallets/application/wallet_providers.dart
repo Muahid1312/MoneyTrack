@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/currency.dart';
 import '../../../data/models/transaction.dart';
 import '../../../data/models/wallet.dart';
+import '../../../data/storage/app_runtime.dart';
 import '../../../data/repositories/wallet_repository.dart';
 import '../../settings/application/settings_controller.dart';
 import '../../transactions/application/transactions_controller.dart';
@@ -14,8 +15,8 @@ final walletsProvider = FutureProvider<WalletSnapshot?>((ref) async {
   return ref.watch(walletRepositoryProvider)?.fetch();
 });
 
-// The wallet the user is working in during this session.
-final selectedWalletIdProvider = StateProvider<int?>((ref) => null);
+// A missing or archived preference falls back to the first active wallet.
+final selectedWalletIdProvider = StateProvider<int?>((ref) => ref.watch(appRuntimeProvider)?.preferences.getInt('active_wallet'));
 final selectedWalletProvider = Provider<Wallet?>((ref) {
   final id = ref.watch(selectedWalletIdProvider);
   final active = ref.watch(walletsProvider).valueOrNull?.wallets.where((w) => !w.archived);
@@ -45,3 +46,8 @@ final currencyBalancesProvider = Provider<Map<AppCurrency, int>>((ref) {
   }
   return out;
 });
+
+void selectWallet(WidgetRef ref,int id) {
+  ref.read(selectedWalletIdProvider.notifier).state=id;
+  ref.read(appRuntimeProvider)?.preferences.setInt('active_wallet', id);
+}

@@ -168,7 +168,7 @@ Future<TransactionFilter?> showDateFilterSheet(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   decoration: BoxDecoration(
                     color: d == current.date
-                        ? AppColors.emerald.withValues(alpha: ctx.isDark ? 0.14 : 0.08)
+                        ? AppColors.primary.withValues(alpha: ctx.isDark ? 0.14 : 0.08)
                         : Colors.transparent,
                     borderRadius: BorderRadius.circular(16),
                   ),
@@ -192,7 +192,7 @@ Future<TransactionFilter?> showDateFilterSheet(
                       ),
                       if (d == current.date)
                         const Icon(Icons.check_circle_rounded,
-                            color: AppColors.emerald, size: 22),
+                            color: AppColors.primary, size: 22),
                     ],
                   ),
                 ),

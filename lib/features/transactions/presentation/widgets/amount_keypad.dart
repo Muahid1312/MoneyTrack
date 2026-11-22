@@ -127,11 +127,11 @@ class _KeyState extends State<_Key> {
           height: widget.height,
           decoration: BoxDecoration(
             color: _down
-                ? AppColors.emerald.withValues(alpha: context.isDark ? 0.18 : 0.12)
+                ? AppColors.primary.withValues(alpha: context.isDark ? 0.18 : 0.12)
                 : p.surface,
             borderRadius: BorderRadius.circular(18),
             border: Border.all(
-                color: _down ? AppColors.emerald.withValues(alpha: 0.4) : p.border.withValues(alpha: 0.7)),
+                color: _down ? AppColors.primary.withValues(alpha: 0.4) : p.border.withValues(alpha: 0.7)),
           ),
           alignment: Alignment.center,
           child: AnimatedScale(

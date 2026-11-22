@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/constants/categories.dart';
 import '../../../core/utils/money.dart';
+import '../../../core/widgets/feedback.dart';
 import '../../../data/models/wallet.dart';
 import '../../../data/models/transaction.dart';
 import '../../../data/repositories/providers.dart';
@@ -72,11 +73,9 @@ class WalletBudgetPanel extends ConsumerWidget {
                                 child: Text('${w.name} · ${w.currency.code}'),
                               ),
                           ],
-                          onChanged: (id) =>
-                              ref
-                                      .read(selectedWalletIdProvider.notifier)
-                                      .state =
-                                  id,
+                          onChanged: (id) {
+                            if (id != null) selectWallet(ref, id);
+                          },
                         ),
                 ),
                 IconButton(
@@ -91,7 +90,28 @@ class WalletBudgetPanel extends ConsumerWidget {
                 ),
               ],
             ),
-            const Text('Available to spend'),
+            if (actions != null &&
+                wallets.where((w) => w.currency == wallet.currency).length >
+                    1) ...[
+              Text(
+                'Total available · ${wallet.currency.code}',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              Text(
+                money(
+                  wallets
+                      .where((w) => w.currency == wallet.currency)
+                      .fold<int>(0, (n, w) => n + snapshot.available(w.id!)),
+                ),
+                style: Theme.of(context).textTheme.headlineMedium,
+              ),
+              const Divider(height: 28),
+            ],
+            Text(
+              actions == null
+                  ? 'Available to spend'
+                  : 'Available to spend · ${wallet.name}',
+            ),
             Text(
               money(snapshot.available(wallet.id!)),
               style: Theme.of(context).textTheme.headlineMedium,
@@ -118,7 +138,8 @@ class WalletBudgetPanel extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         if (budgets.isEmpty) const Text('No budget set'),
-                        for (final b in budgets)
+                        for (final b
+                            in actions == null ? budgets : budgets.take(2))
                           _BudgetItem(
                             budget: b,
                             wallet: wallet,
@@ -126,6 +147,24 @@ class WalletBudgetPanel extends ConsumerWidget {
                             transactions: transactions,
                             money: money,
                             onEdit: () => _edit(context, wallet, b),
+                          ),
+                        if (actions != null && budgets.length > 2)
+                          TextButton(
+                            onPressed: () => Navigator.push(
+                              context,
+                              MaterialPageRoute<void>(
+                                builder: (_) => Scaffold(
+                                  appBar: AppBar(
+                                    title: const Text('Wallet budgets'),
+                                  ),
+                                  body: ListView(
+                                    padding: const EdgeInsets.all(16),
+                                    children: const [WalletBudgetPanel()],
+                                  ),
+                                ),
+                              ),
+                            ),
+                            child: Text('View all ${budgets.length} budgets'),
                           ),
                       ],
                     );
@@ -224,6 +263,15 @@ class _BudgetItem extends StatelessWidget {
         if (status != null) ...[
           if (budget.rollover) Text('Carried forward   ${money(status.carry)}'),
           Text('Spent   ${money(status.spent)}'),
+          const SizedBox(height: 6),
+          LinearProgressIndicator(
+            value: (status.spent / (budget.limit + status.carry)).clamp(
+              0.0,
+              1.0,
+            ),
+            semanticsLabel: 'Budget used',
+            semanticsValue: summary,
+          ),
         ],
         TextButton(onPressed: onEdit, child: const Text('Edit budget')),
       ],
@@ -268,6 +316,16 @@ class _BudgetFormState extends ConsumerState<_BudgetForm> {
 
   Future<void> _save({bool remove = false}) async {
     if (busy) return;
+    if (remove &&
+        !await confirmDestructive(
+          context,
+          title: 'Delete this budget?',
+          message:
+              'This removes the spending limit. Your wallet balance and transaction history stay the same.',
+          confirmLabel: 'Delete budget',
+        ))
+      return;
+    if (!mounted) return;
     final amount = Money.parseMinor(limit.text, widget.wallet.currency);
     if (!remove && (amount == null || amount <= 0)) {
       setState(

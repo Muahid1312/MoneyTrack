@@ -15,6 +15,7 @@ import '../../../core/widgets/buttons.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/transaction_tile.dart';
 import '../../../data/models/transaction_type.dart';
+import '../../../data/models/wallet.dart';
 import '../../../data/repositories/providers.dart';
 import '../application/transaction_filter.dart';
 import '../../wallets/application/wallet_providers.dart';
@@ -37,6 +38,9 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
   /// Ids swiped away (hidden immediately while the delete completes).
   final Set<int> _dismissed = {};
   int _revision = 0;
+
+  @override
+  void initState(){super.initState();_search.text=ref.read(transactionFilterProvider).query;}
 
   @override
   void dispose() {
@@ -73,6 +77,13 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
       ...ref.watch(allTransactionsProvider).map((tx) => tx.currency),
     };
     final filter = ref.watch(transactionFilterProvider);
+    final wallets = {for (final w in ref.watch(walletsProvider).valueOrNull?.wallets ?? const <Wallet>[]) if(w.currency == currency) w.id! : w.name};
+    ref.listen<TransactionFilter>(transactionFilterProvider, (before, after) {
+      if(before?.query != after.query && _search.text != after.query) {
+        _debounce?.cancel();
+        _search.text = after.query;
+      }
+    });
     final data = ref.watch(filteredTransactionsProvider);
     final totalCount = ref.watch(activityEntriesProvider).length;
     final marker = ref.watch(lastChangedTransactionProvider);
@@ -97,14 +108,22 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Transactions', style: t.headlineMedium),
+                    Text('Activity', style: t.headlineMedium),
                     if (currencies.length == 1) Text(currency.code, style: t.labelMedium)
                     else DropdownButton<AppCurrency>(
                       value: currency, isExpanded: true,
                       items: [for (final c in AppCurrency.values.where(currencies.contains))
                         DropdownMenuItem(value: c, child: Text('${c.name} · ${c.code}'))],
-                      onChanged: (c) => ref.read(activityCurrencyChoiceProvider.notifier).state = c,
+                      onChanged: (c) {
+                        ref.read(activityCurrencyChoiceProvider.notifier).state = c;
+                        ref.read(transactionFilterProvider.notifier).state = filter.copyWith(walletId: () => null);
+                      },
                     ),
+                    if(wallets.isNotEmpty) DropdownButtonFormField<int>(
+                      isExpanded:true, key: ValueKey((currency,filter.walletId)), initialValue:wallets.containsKey(filter.walletId)?filter.walletId:0,
+                      decoration: const InputDecoration(labelText:'Wallet'),
+                      items:[const DropdownMenuItem(value:0,child:Text('All wallets')),for(final w in wallets.entries)DropdownMenuItem(value:w.key,child:Text(w.value,overflow:TextOverflow.ellipsis))],
+                      onChanged:(id)=>ref.read(transactionFilterProvider.notifier).state=filter.copyWith(walletId:()=>id==0?null:id)),
                     const SizedBox(height: 4),
                     Text(
                       totalCount == 0
@@ -128,7 +147,9 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
             ]))),
           if (filter.isActive && data.count > 0)
             SliverToBoxAdapter(child: _summary(data, currency)),
-          if (totalCount == 0)
+          if (ref.watch(transactionsProvider).isLoading) const SliverToBoxAdapter(child:LinearProgressIndicator())
+          else if (ref.watch(transactionsProvider).hasError) const SliverToBoxAdapter(child:SizedBox.shrink())
+          else if (totalCount == 0)
             SliverFillRemaining(
               hasScrollBody: false,
               child: Padding(
@@ -189,9 +210,9 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                       background: Container(alignment: Alignment.centerRight, padding: const EdgeInsets.only(right: 20),
                         decoration: BoxDecoration(color: p.expenseSoft, borderRadius: AppRadii.control),
                         child: Icon(Icons.delete_outline_rounded, color: p.expense)),
-                      child: TransactionTile(transaction: tx, currency: currency,
+                      child: TransactionTile(transaction: tx, currency: currency, walletName:wallets[tx.walletId],
                         highlight: isFreshChange(marker, tx.id),
-                        onTap: () => TransactionActions.openEditor(context, ref, existing: tx),
+                        onTap: () => TransactionActions.showActions(context, ref, tx),
                         onLongPress: () => TransactionActions.showActions(context, ref, tx)),
                     ),
                   ));
@@ -241,7 +262,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
     }
 
     return SizedBox(
-      height: 44,
+      height: 48,
       child: ListView(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screen),

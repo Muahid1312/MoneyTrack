@@ -16,12 +16,14 @@ class TransactionTile extends StatelessWidget {
     required this.transaction,
     required this.currency,
     this.onTap,
+    this.walletName,
     this.onLongPress,
     this.showDate = false,
     this.highlight = false,
   });
 
   final TransactionModel transaction;
+  final String? walletName;
   final AppCurrency currency;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
@@ -35,7 +37,8 @@ class TransactionTile extends StatelessWidget {
     final tx = transaction;
     final amountColor = tx.type.isIncome ? p.income : p.textPrimary;
     final subtitle = [
-      tx.category.name,
+      if (tx.title != tx.category.name || walletName == null) tx.category.name,
+      if(walletName != null) walletName!,
       showDate ? Dates.shortDate(tx.occurredAt) : Dates.time(tx.occurredAt),
     ].join(' · ');
 

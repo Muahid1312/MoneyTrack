@@ -25,6 +25,7 @@ enum DateFilter {
 class TransactionFilter {
   const TransactionFilter({
     this.query = '',
+    this.walletId,
     this.type,
     this.categoryIds = const {},
     this.date = DateFilter.all,
@@ -32,17 +33,18 @@ class TransactionFilter {
   });
 
   final String query;
+  final int? walletId;
   final TransactionType? type;
   final Set<String> categoryIds;
   final DateFilter date;
   final DateSpan? customSpan;
 
   bool get hasActiveFilters =>
-      type != null || categoryIds.isNotEmpty || date != DateFilter.all;
+      walletId != null || type != null || categoryIds.isNotEmpty || date != DateFilter.all;
   bool get isActive => hasActiveFilters || query.trim().isNotEmpty;
 
   int get activeCount =>
-      (type != null ? 1 : 0) +
+      (walletId != null ? 1 : 0) + (type != null ? 1 : 0) +
       (categoryIds.isNotEmpty ? 1 : 0) +
       (date != DateFilter.all ? 1 : 0);
 
@@ -55,6 +57,7 @@ class TransactionFilter {
       };
 
   bool matches(TransactionModel t, DateSpan? span) {
+    if (walletId != null && t.walletId != walletId) return false;
     if (type != null && t.type != type) return false;
     if (categoryIds.isNotEmpty && !categoryIds.contains(t.categoryId)) {
       return false;
@@ -70,6 +73,7 @@ class TransactionFilter {
 
   TransactionFilter copyWith({
     String? query,
+    int? Function()? walletId,
     TransactionType? Function()? type,
     Set<String>? categoryIds,
     DateFilter? date,
@@ -77,6 +81,7 @@ class TransactionFilter {
   }) =>
       TransactionFilter(
         query: query ?? this.query,
+        walletId: walletId == null ? this.walletId : walletId(),
         type: type != null ? type() : this.type,
         categoryIds: categoryIds ?? this.categoryIds,
         date: date ?? this.date,

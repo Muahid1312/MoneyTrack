@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 3.0.1+4
+version: 3.1.0+5
 
 environment:
   sdk: ^3.9.2
@@ -63,6 +63,22 @@ dev_dependencies:
 
 # The following section is specific to Flutter packages.
 flutter:
+  fonts:
+    - family: Plus Jakarta Sans
+      fonts:
+        - asset: assets/google_fonts/PlusJakartaSans-Regular.ttf
+          weight: 400
+        - asset: assets/google_fonts/PlusJakartaSans-Medium.ttf
+          weight: 500
+        - asset: assets/google_fonts/PlusJakartaSans-SemiBold.ttf
+          weight: 600
+        - asset: assets/google_fonts/PlusJakartaSans-Bold.ttf
+          weight: 700
+        - asset: assets/google_fonts/PlusJakartaSans-ExtraBold.ttf
+          weight: 800
+    - family: Noto Arabic
+      fonts:
+        - asset: assets/report_fonts/NotoSansArabic-Regular.ttf
   assets:
     - assets/google_fonts/
     - assets/report_fonts/
