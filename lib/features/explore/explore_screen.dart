@@ -21,143 +21,145 @@ import '../transactions/application/transaction_filter.dart';
 import '../transactions/presentation/transaction_actions.dart';
 import '../transactions/presentation/transactions_screen.dart';
 import '../wallets/presentation/wallets_screen.dart';
+import '../dashboard/presentation/dashboard_screen.dart';
 
 enum MoneyFeature {
+  overview('Financial planning','Available cash','Check cash, reserved savings and wallet spending plans.','dashboard home today available balance budget emergency',Icons.account_balance_outlined),
   wallets(
-    'My money',
+    'Accounts and records',
     'Wallets and accounts',
     'Check cash and view each account’s history.',
     'bank cash opening balance archive',
     Icons.account_balance_wallet_outlined,
   ),
   transfer(
-    'My money',
+    'Accounts and records',
     'Transfer money',
     'Move cash between your wallets.',
     'send exchange fx rate conversion',
     Icons.swap_horiz,
   ),
   categories(
-    'My money',
+    'Accounts and records',
     'Categories',
     'Browse income and spending by category.',
     'food salary groceries transport dining',
     Icons.category_outlined,
   ),
   activity(
-    'My money',
+    'Accounts and records',
     'Transactions and receipts',
     'Find an entry to edit it or attach a receipt.',
     'activity history delete undo camera photo pdf search filters',
     Icons.receipt_long_outlined,
   ),
   add(
-    'My money',
+    'Accounts and records',
     'Add a transaction',
     'Record an expense or income.',
     'payment purchase salary deposit entry',
     Icons.add_circle_outline,
   ),
   budget(
-    'Planning',
+    'Financial planning',
     'Wallet budgets',
     'Set spending limits by wallet, period or category.',
     'daily weekly custom rollover budget planning overspend',
     Icons.donut_large_outlined,
   ),
   monthly(
-    'Planning',
+    'Financial planning',
     'Monthly spending limit',
     'Track one monthly limit across a reporting currency.',
     'budget alert warning overall',
     Icons.track_changes,
   ),
   savings(
-    'Planning',
+    'Financial planning',
     'Savings goals',
     'Reserve cash for a goal or emergency fund.',
-    'saving savings withdrawal contribution weekly replenishment target',
+    'save money saving savings withdrawal contribution weekly replenishment target',
     Icons.savings_outlined,
   ),
   recurring(
-    'Planning',
+    'Financial planning',
     'Recurring transactions',
     'Schedule repeated entries and review due items.',
     'rent bills salary repeat subscription automatic confirmation',
     Icons.event_repeat,
   ),
   debts(
-    'Obligations',
+    'Money management',
     'Debts and loans',
     'Track money you owe and money owed to you.',
     'borrowed money borrowing lending lent loan credit repayments principal',
     Icons.handshake_outlined,
   ),
   upcoming(
-    'Obligations',
+    'Money management',
     'Upcoming payments',
     'Check due dates and entries awaiting review.',
     'obligations overdue deadlines upcoming bills pending',
     Icons.event_outlined,
   ),
   reminders(
-    'Obligations',
+    'Money management',
     'Local reminders',
     'Choose whether Android shows due-date notifications.',
     'notification notify alarm reconcile planning',
     Icons.notifications_outlined,
   ),
   projects(
-    'Advanced finance',
+    'Money management',
     'Projects',
     'Track project income, costs and client payments.',
-    'project finances assignments categories contract allocations',
+    'business project finances assignments categories contract allocations',
     Icons.folder_outlined,
   ),
   insights(
-    'Advanced finance',
+    'Money management',
     'Spending insights',
     'Compare spending and income over time.',
     'analytics statistics trends chart balance categories',
     Icons.bar_chart,
   ),
   reports(
-    'Advanced finance',
+    'Money management',
     'Financial reports',
     'Filter financial records and export PDF or CSV.',
     'detailed reports cash flow project summaries print',
     Icons.assessment_outlined,
   ),
   currency(
-    'Advanced finance',
+    'Money management',
     'Reporting currency',
     'Choose the original currency to include in reports.',
     'currency tools afn usd afghani dollar eur pkr jpy kwd',
     Icons.currency_exchange,
   ),
   backup(
-    'Tools and security',
+    'Tools',
     'Backup and restore',
     'Save or recover an encrypted copy of your ledger.',
     'backup back up restore passphrase recovery import',
     Icons.enhanced_encryption_outlined,
   ),
   security(
-    'Tools and security',
+    'Application',
     'App security',
     'Manage your PIN, biometrics and automatic lock.',
     'fingerprint password unlock privacy security',
     Icons.lock_outline,
   ),
   export(
-    'Tools and security',
+    'Tools',
     'Data export',
     'Share transaction history as a CSV spreadsheet.',
     'export csv excel download share',
     Icons.ios_share,
   ),
   settings(
-    'Tools and security',
+    'Application',
     'Settings',
     'Change your name, appearance and device preferences.',
     'theme dark mode light system about version clear delete ledger',
@@ -173,6 +175,7 @@ enum MoneyFeature {
   );
   final String group, title, description, terms;
   final IconData icon;
+  bool get available => true; // All registered tools are bundled offline.
   bool matches(String query) {
     final index = '$title $description $terms $group'.toLowerCase();
     return query
@@ -184,11 +187,13 @@ enum MoneyFeature {
 
   Future<void> open(BuildContext context, WidgetRef ref) async {
     if (this == add) return TransactionActions.openEditor(context, ref);
-    if (this == activity || this == insights) {
-      ref.read(shellTabProvider.notifier).state = this == activity ? 1 : 2;
+    if (this == insights) {
+      ref.read(shellTabProvider.notifier).state = 1;
       return;
     }
     final page = switch (this) {
+      overview => Scaffold(appBar:AppBar(title:const Text('Available cash')),body:const DashboardScreen()),
+      activity => Scaffold(appBar:AppBar(title:const Text('Search all transactions')),body:const TransactionsScreen()),
       wallets => const WalletsScreen(),
       transfer => const TransferScreen(),
       categories => const _CategoriesPage(),
@@ -411,26 +416,11 @@ class _ExploreState extends ConsumerState<ExploreScreen> {
   @override
   Widget build(BuildContext context) {
     final query = _search.text.trim();
-    final items = MoneyFeature.values.where((f) => f.matches(query));
+    final items = MoneyFeature.values.where((f) => f.available && f.matches(query));
     final theme = Theme.of(context);
-    return SafeArea(
-      bottom: false,
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+    return Scaffold(appBar:AppBar(title:const Text('More'),actions:[IconButton(tooltip:'Quick guide',icon:const Icon(Icons.help_outline),onPressed:()=>showQuickGuide(context))]),body: ListView(
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 20),
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text('Explore', style: theme.textTheme.headlineMedium),
-              ),
-              IconButton(
-                tooltip: 'Quick guide',
-                icon: const Icon(Icons.help_outline),
-                onPressed: () => showQuickGuide(context),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
           TextField(
             controller: _search,
             onChanged: (_) => setState(() {}),
@@ -578,7 +568,7 @@ class _Heading extends StatelessWidget {
   final String label;
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(4, 22, 4, 4),
+    padding: const EdgeInsets.fromLTRB(4, 12, 4, 3),
     child: Text(label, style: Theme.of(context).textTheme.titleMedium),
   );
 }
@@ -596,21 +586,21 @@ void showQuickGuide(BuildContext context) => showModalBottomSheet<void>(
         leading: Icon(Icons.account_balance_wallet_outlined),
         title: Text('Choose a wallet'),
         subtitle: Text(
-          'Home shows its cash, savings reservations and available balance.',
+          'Open Accounts for balances or search More for available cash.',
         ),
       ),
       const ListTile(
         leading: Icon(Icons.add),
         title: Text('Record a payment'),
         subtitle: Text(
-          'Open Add, enter the amount, choose a category and save.',
+          'Use + on Transactions, review the date and account, enter an amount and save.',
         ),
       ),
       const ListTile(
         leading: Icon(Icons.search),
         title: Text('Find a tool'),
         subtitle: Text(
-          'Search Explore by what you want to do. Pin a tool to put it first.',
+          'Search More by what you want to do. Pin a tool to put it first.',
         ),
       ),
       FilledButton(

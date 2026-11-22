@@ -62,7 +62,7 @@ class _LifecycleState extends ConsumerState<PlanningLifecycle> with WidgetsBindi
     final repo=ref.read(planningRepositoryProvider); if(repo==null || _running || AccessGuard.locked || AccessGuard.maintenance)return;
     _running=true;ref.read(planningBusyProvider.notifier).state=true;
     try { await repo.reconcile();if(mounted)await refreshPlanning(ref); }
-    catch (_) { if(mounted)ref.read(planningErrorProvider.notifier).state='Some recurring entries need attention. Open Planning to review pending entries.'; }
+    catch (_) { if(mounted)ref.read(planningErrorProvider.notifier).state='Some recurring entries need attention. Open Recurring transactions in More to review pending entries.'; }
     finally { _running=false;if(mounted)ref.read(planningBusyProvider.notifier).state=false; }
   }
   @override

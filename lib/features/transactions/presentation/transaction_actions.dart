@@ -25,13 +25,15 @@ abstract final class TransactionActions {
     WidgetRef ref, {
     TransactionModel? existing,
     TransactionType? initialType,
+    DateTime? initialDate,
+    void Function(DateTime,AppCurrency)? onPosted,
     AppCurrency? preferredCurrency,
     int? initialProjectId,
     bool initialClientReceipt = false,
     Future<void> Function(TransactionModel tx)? animateOut,
   }) async {
     final result = await Navigator.of(context).push(
-        TransactionEditorScreen.route(existing: existing, initialType: initialType, preferredCurrency: preferredCurrency, initialProjectId: initialProjectId, initialClientReceipt: initialClientReceipt));
+        TransactionEditorScreen.route(initialDate:initialDate,onPosted:onPosted,existing: existing, initialType: initialType, preferredCurrency: preferredCurrency, initialProjectId: initialProjectId, initialClientReceipt: initialClientReceipt));
     if (result == EditorResult.deleted && existing?.id != null && context.mounted) {
       if (animateOut != null) await animateOut(existing!);
       if (context.mounted) await deleteWithUndo(context, ref, existing!);
@@ -110,7 +112,7 @@ abstract final class TransactionActions {
               const SizedBox(height: 12),
               Text(Money.format(tx.signedMinor, currency, signed: true),
                   style: AppTypography.amount(28,
-                      color: tx.type.isIncome ? p.income : p.textPrimary)),
+                      color: tx.type.isIncome ? p.income : p.expense)),
               const SizedBox(height: 20),
               _SheetAction(
                 icon: Icons.edit_outlined,

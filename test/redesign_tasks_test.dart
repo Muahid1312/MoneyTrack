@@ -171,7 +171,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(NavigationDestination, 'Explore'));
+      await tester.tap(find.widgetWithText(NavigationDestination, 'More'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), 'saving');
       await tester.pumpAndSettle();
@@ -209,10 +209,9 @@ void main() {
       expect(find.text('Rent buffer'), findsOneWidget);
       await tester.pageBack();
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(NavigationDestination, 'Home'));
+      await tester.tap(find.widgetWithText(NavigationDestination, 'Accounts'));
       await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('Transfer money'));
-      await tester.tap(find.text('Transfer money'));
+      await tester.tap(find.byTooltip('Transfer money'));
       await tester.pumpAndSettle();
       for (final entry in [(0, 'Main (USD)'), (1, 'Pocket (USD)')]) {
         await tester.tap(
@@ -226,7 +225,10 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.textContaining('Destination receives'), findsOneWidget);
       final confirm = find.text('Confirm transfer');
+      FocusManager.instance.primaryFocus?.unfocus();
+      await tester.pumpAndSettle();
       await tester.ensureVisible(confirm);
+      await tester.pumpAndSettle();
       await tester.tap(confirm);
       await tester.pumpAndSettle();
       await tester.runAsync(() async {
@@ -235,6 +237,74 @@ void main() {
         expect(after.balances, {1: 8766, 2: 1234});
       });
       await tester.pumpAndSettle();
+      for (var i = 0; i < 80 && confirm.evaluate().isNotEmpty; i++) {
+        await tester.runAsync(() async {
+          await Future<void>.delayed(const Duration(milliseconds: 15));
+        });
+        await tester.pump(const Duration(milliseconds: 250));
+      }
+      expect(confirm, findsNothing);
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.widgetWithText(NavigationDestination, 'Transactions'),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Add transaction'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('entry-amount')),
+        '32.25',
+      );
+      await tester.enterText(find.byKey(const ValueKey('entry-note')), 'Rent');
+      FocusManager.instance.primaryFocus?.unfocus();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('More details'));
+      await tester.pumpAndSettle();
+      final schedule = find.text('Create a recurring schedule');
+      await tester.ensureVisible(schedule);
+      await tester.tap(schedule);
+      await tester.pumpAndSettle();
+      expect(find.text('32.25'), findsOneWidget);
+      final saveRule = find.text('Save recurring rule');
+      await tester.scrollUntilVisible(
+        saveRule,
+        200,
+        scrollable: find
+            .byWidgetPredicate(
+              (w) => w is Scrollable && w.axisDirection == AxisDirection.down,
+            )
+            .last,
+      );
+      await tester.tap(saveRule);
+      for (
+        var i = 0;
+        i < 80 && find.text('New recurring rule').evaluate().isNotEmpty;
+        i++
+      ) {
+        await tester.runAsync(() async {
+          await Future<void>.delayed(const Duration(milliseconds: 15));
+        });
+        await tester.pump(const Duration(milliseconds: 250));
+      }
+      await tester.pumpAndSettle();
+      expect(find.byTooltip('Add transaction'), findsOneWidget);
+      await tester.runAsync(() async {
+        final saved = await planning.fetch();
+        expect(
+          (
+            saved.rules.single.name,
+            saved.rules.single.amountMinor,
+            saved.rules.single.automatic,
+          ),
+          ('Rent', 3225, false),
+        );
+        expect(
+          await SqfliteTransactionRepository(fixture.database).fetchAll(),
+          isEmpty,
+        );
+      });
       expect(tester.takeException(), isNull);
     },
   );

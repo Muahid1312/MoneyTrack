@@ -117,7 +117,7 @@ class BalanceCard extends StatelessWidget {
                     children: [
                       _Pill(
                         icon: net >= 0 ? Icons.trending_up_rounded : Icons.trending_down_rounded,
-                        color: net >= 0 ? AppColors.emeraldBright : AppColors.roseSoft,
+                        color: net >= 0 ? AppColors.incomeLight : AppColors.roseSoft,
                         text: hidden
                             ? 'Cash flow · $monthLabel'
                             : '${Money.format(net, currency, signed: true)} cash flow in $monthLabel',
@@ -127,7 +127,7 @@ class BalanceCard extends StatelessWidget {
                           icon: change <= 0
                               ? Icons.south_east_rounded
                               : Icons.north_east_rounded,
-                          color: change <= 0 ? AppColors.emeraldBright : AppColors.amber,
+                          color: change <= 0 ? AppColors.incomeLight : AppColors.amber,
                           text:
                               'Spending ${change <= 0 ? '−' : '+'}${change.abs().toStringAsFixed(0)}% vs prior month',
                         ),
@@ -151,7 +151,7 @@ class BalanceCard extends StatelessWidget {
                               currency: currency,
                               hidden: hidden,
                               icon: Icons.south_west_rounded,
-                              color: AppColors.emeraldBright,
+                              color: AppColors.incomeLight,
                             ),
                           ),
                           VerticalDivider(
@@ -284,8 +284,8 @@ class _CardDecorPainter extends CustomPainter {
       size.width * 0.55,
       Paint()
         ..shader = RadialGradient(colors: [
-          AppColors.emerald.withValues(alpha: 0.30),
-          AppColors.emerald.withValues(alpha: 0.0),
+          AppColors.incomeBlue.withValues(alpha: 0.30),
+          AppColors.incomeBlue.withValues(alpha: 0.0),
         ]).createShader(Rect.fromCircle(center: glowCenter, radius: size.width * 0.55)),
     );
 

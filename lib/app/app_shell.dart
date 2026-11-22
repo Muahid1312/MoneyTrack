@@ -4,19 +4,16 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/theme/app_colors.dart';
-import '../core/theme/app_tokens.dart';
+
 import '../core/utils/money.dart';
 import '../core/widgets/feedback.dart';
 import '../features/explore/explore_screen.dart';
 import '../features/budgets/application/budget_providers.dart';
 import '../features/budgets/domain/budget_calculator.dart';
-import '../features/dashboard/presentation/dashboard_screen.dart';
+import '../features/transactions/presentation/ledger_screen.dart';
 import '../features/settings/application/settings_controller.dart';
-import '../features/statistics/presentation/statistics_screen.dart';
-import '../features/transactions/presentation/transactions_screen.dart';
-import '../features/transactions/application/transaction_filter.dart';
-
-import '../features/transactions/presentation/transaction_actions.dart';
+import '../features/statistics/presentation/ledger_statistics_screen.dart';
+import '../features/wallets/presentation/wallets_screen.dart';
 
 /// Currently selected bottom-navigation tab.
 final shellTabProvider = StateProvider<int>((ref) => 0);
@@ -31,21 +28,13 @@ class AppShell extends ConsumerStatefulWidget {
   ConsumerState<AppShell> createState() => _AppShellState();
 }
 
-class _AppShellState extends ConsumerState<AppShell>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _fade = AnimationController(
-    vsync: this,
-    duration: AppDurations.medium,
-    value: 1,
-  );
-
+class _AppShellState extends ConsumerState<AppShell> {
   static const _screens = [
-    DashboardScreen(),
-    TransactionsScreen(),
-    StatisticsScreen(),
+    LedgerScreen(),
+    LedgerStatisticsScreen(),
+    WalletsScreen(),
     ExploreScreen(),
   ];
-
   final _visited = <int>{0};
 
   @override
@@ -59,25 +48,9 @@ class _AppShellState extends ConsumerState<AppShell>
   }
 
   @override
-  void dispose() {
-    _fade.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     final index = ref.watch(shellTabProvider);
     _visited.add(index);
-
-    ref.listen<int>(shellTabProvider, (prev, next) {
-      if (prev != next) {
-        if (MediaQuery.disableAnimationsOf(context)) {
-          _fade.value = 1;
-        } else {
-          _fade.forward(from: 0);
-        }
-      }
-    });
 
     // In-app budget warnings when spending crosses a threshold.
     ref.listen<BudgetStatus>(budgetStatusProvider, (prev, next) {
@@ -114,106 +87,49 @@ class _AppShellState extends ConsumerState<AppShell>
       child: Scaffold(
         extendBody: false,
         resizeToAvoidBottomInset: true,
-        body: FadeTransition(
-          opacity: CurvedAnimation(parent: _fade, curve: Curves.easeOut),
-          child: SlideTransition(
-            position: Tween(begin: const Offset(0, 0.015), end: Offset.zero)
-                .animate(
-                  CurvedAnimation(parent: _fade, curve: AppCurves.standard),
-                ),
-            child: IndexedStack(
-              index: index,
-              children: [
-                for (var i = 0; i < _screens.length; i++)
-                  if (_visited.contains(i))
-                    TickerMode(enabled: i == index, child: _screens[i])
-                  else
-                    const SizedBox.shrink(),
-              ],
-            ),
-          ),
-        ),
-        bottomNavigationBar: _NavBar(
+        body: IndexedStack(
           index: index,
-          onSelect: (i) {
-            if (i == index) return;
-            HapticFeedback.selectionClick();
-            ref.read(shellTabProvider.notifier).state = i;
-          },
-          onAdd: () => TransactionActions.openEditor(
-            context,
-            ref,
-            preferredCurrency: index == 1
-                ? ref.read(activityCurrencyProvider)
-                : null,
+          children: [
+            for (var i = 0; i < _screens.length; i++)
+              _visited.contains(i)
+                  ? HeroMode(
+                      enabled: index == i,
+                      child: TickerMode(
+                        enabled: index == i,
+                        child: _screens[i],
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+          ],
+        ),
+        bottomNavigationBar: NavigationBar(
+          height: 60,
+          selectedIndex: index,
+          onDestinationSelected: (i) =>
+              ref.read(shellTabProvider.notifier).state = i,
+          labelTextStyle: WidgetStatePropertyAll(
+            Theme.of(context).textTheme.labelSmall,
           ),
+          destinations: const [
+            NavigationDestination(
+              icon: Icon(Icons.receipt_long_outlined),
+              selectedIcon: Icon(Icons.receipt_long),
+              label: 'Transactions',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.pie_chart_outline),
+              selectedIcon: Icon(Icons.pie_chart),
+              label: 'Statistics',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.account_balance_wallet_outlined),
+              selectedIcon: Icon(Icons.account_balance_wallet),
+              label: 'Accounts',
+            ),
+            NavigationDestination(icon: Icon(Icons.more_horiz), label: 'More'),
+          ],
         ),
       ),
-    );
-  }
-}
-
-class _NavBar extends StatelessWidget {
-  const _NavBar({
-    required this.index,
-    required this.onSelect,
-    required this.onAdd,
-  });
-  final int index;
-  final ValueChanged<int> onSelect;
-  final VoidCallback onAdd;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return NavigationBar(
-      labelTextStyle: WidgetStatePropertyAll(
-        Theme.of(context).textTheme.labelMedium,
-      ),
-      selectedIndex: index < 2 ? index : index + 1,
-      onDestinationSelected: (i) {
-        if (i == 2) {
-          onAdd();
-        } else {
-          onSelect(i < 2 ? i : i - 1);
-        }
-      },
-      destinations: [
-        const NavigationDestination(
-          icon: Icon(Icons.home_outlined),
-          selectedIcon: Icon(Icons.home),
-          label: 'Home',
-        ),
-        const NavigationDestination(
-          icon: Icon(Icons.receipt_long_outlined),
-          selectedIcon: Icon(Icons.receipt_long),
-          label: 'Activity',
-        ),
-        NavigationDestination(
-          tooltip: 'Add transaction',
-          icon: DecoratedBox(
-            decoration: BoxDecoration(
-              color: scheme.primary,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-              child: Icon(Icons.add, color: scheme.onPrimary),
-            ),
-          ),
-          label: 'Add',
-        ),
-        const NavigationDestination(
-          icon: Icon(Icons.bar_chart_outlined),
-          selectedIcon: Icon(Icons.bar_chart),
-          label: 'Insights',
-        ),
-        const NavigationDestination(
-          icon: Icon(Icons.grid_view_outlined),
-          selectedIcon: Icon(Icons.grid_view),
-          label: 'Explore',
-        ),
-      ],
     );
   }
 }

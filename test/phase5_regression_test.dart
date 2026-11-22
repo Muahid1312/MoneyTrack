@@ -134,7 +134,7 @@ void main() {
   });
 
   for(final dark in [false,true]) {
-    testWidgets('dashboard and navigation fit narrow screens with large text (${dark?'dark':'light'})', (tester) async {
+    testWidgets('calendar and navigation fit narrow screens with large text (${dark?'dark':'light'})', (tester) async {
       await tester.runAsync(() async { await f.seed(); });
       final c=ProviderContainer(overrides:[
         appRuntimeProvider.overrideWithValue(f.runtime),
@@ -154,7 +154,7 @@ void main() {
       tester.platformDispatcher.textScaleFactorTestValue=1.6;
       await tester.pumpWidget(UncontrolledProviderScope(container:c,child:const MoneyTrackApp()));
       await tester.pumpAndSettle();expect(tester.takeException(),isNull);
-      for(final tab in ['Activity','Insights','Explore','Home']) {
+      for(final tab in ['Statistics','Accounts','More','Transactions']) {
         await tester.tap(find.widgetWithText(NavigationDestination,tab));await tester.pump();
         await tester.runAsync(() async { await Future<void>.delayed(Duration.zero); });await tester.pump(const Duration(milliseconds:500));
         expect(tester.takeException(),isNull,reason:tab);

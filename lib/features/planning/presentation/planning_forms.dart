@@ -13,10 +13,10 @@ import '../../wallets/domain/exchange_rate.dart';
 import '../application/planning_providers.dart';
 import '../domain/schedule.dart';
 
-Future<void> _finishSaved(BuildContext context,WidgetRef ref) async {
+Future<void> _finishSaved(BuildContext context,WidgetRef ref,{bool? scheduled}) async {
   try { await refreshPlanning(ref); }
   catch (_) { if(context.mounted)ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Saved. Reopen this screen to refresh stored records.'))); }
-  if(context.mounted)Navigator.pop(context);
+  if(context.mounted)Navigator.pop(context,scheduled);
 }
 String? _required(String? value)=>(value??'').trim().isEmpty?'This field is required':null;
 String? _date(String? value){if((value??'').isEmpty)return null;try{CivilSchedule.parse(value!);return null;}catch(_){return 'Use a valid YYYY-MM-DD date';}}
@@ -164,8 +164,11 @@ class _GoalFormState extends ConsumerState<GoalForm> {
     ])));
   }
 }
+typedef RecurringEntryDraft = ({int walletId,TransactionType type,String? category,String amount,String name,DateTime date,int? projectId,String? rate});
+
 class RecurringForm extends ConsumerStatefulWidget {
-  const RecurringForm({super.key,this.rule});final RecurringRule? rule;
+  const RecurringForm({super.key,this.rule,this.draft});final RecurringRule? rule;
+  final RecurringEntryDraft? draft;
   @override
   ConsumerState<RecurringForm> createState()=>_RecurringFormState();
 }
@@ -174,8 +177,9 @@ class _RecurringFormState extends ConsumerState<RecurringForm> {
   TransactionType _type=TransactionType.expense;String _category='other',_frequency='monthly';int? _walletId,_projectId;
   bool _automatic=false,_saving=false;String? _error;
   @override
-  void initState(){super.initState();final r=widget.rule;_name=TextEditingController(text:r?.name??'');_amountController=TextEditingController(text:r==null?'':Money.plain(r.amountMinor,r.currency));
-    _start=TextEditingController(text:r?.row['start_date'] as String? ??CivilSchedule.key(DateTime.now()));_end=TextEditingController(text:r?.endDate??'');_rate=TextEditingController(text:r?.row['project_rate'] as String? ??'');
+  void initState(){super.initState();final r=widget.rule;final draft=widget.draft;_name=TextEditingController(text:r?.name??draft?.name??'');_amountController=TextEditingController(text:r==null?(draft?.amount??''):Money.plain(r.amountMinor,r.currency));
+    _start=TextEditingController(text:r?.row['start_date'] as String? ??CivilSchedule.key(draft?.date??DateTime.now()));_end=TextEditingController(text:r?.endDate??'');_rate=TextEditingController(text:r?.row['project_rate'] as String? ??draft?.rate??'');
+    if(draft!=null){_walletId=draft.walletId;_type=draft.type;_category=draft.category??(_type.isIncome?'other_income':'other');_projectId=draft.projectId;}
     if(r!=null){_type=TransactionType.fromStorage(r.row['type'] as String);_category=r.row['category_id'] as String;_frequency=r.row['frequency'] as String;_walletId=r.walletId;_projectId=r.row['project_id'] as int?;_automatic=r.automatic;}}
   @override
   void dispose(){for(final c in [_name,_amountController,_start,_end,_rate]){c.dispose();}super.dispose();}
@@ -206,7 +210,7 @@ class _RecurringFormState extends ConsumerState<RecurringForm> {
           try {await ref.read(planningRepositoryProvider)!.saveRule(id:widget.rule?.id,ruleName:_name.text,type:_type,amountMinor:Money.parseMinor(_amountController.text,wallet.currency)!,walletId:wallet.id!,categoryId:_category,
             projectId:_projectId,projectRate:_rate.text,frequency:_frequency,startDate:_start.text,endDate:_end.text.isEmpty?null:_end.text,automatic:_automatic);
             try { await ref.read(planningRepositoryProvider)!.reconcile(); } catch (_) { if(context.mounted)ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Rule saved. Review pending entries after the next reconciliation.'))); }
-            await _finishSaved(context,ref);
+            await _finishSaved(context,ref,scheduled:widget.draft!=null?true:null);
           } catch (_) {if(mounted)setState((){_saving=false;_error='Could not save. Check start/end dates, wallet, project and manual rate.';});}
         },child:Text(_saving?'Saving…':'Save recurring rule'))
       ])));

@@ -1,43 +1,55 @@
-# MoneyTrack 3.1 redesign
+# MoneyTrack 3.2 Android redesign
 
-MoneyTrack 3.0.1 required users to know that debts were under Planning in More and that a long press revealed receipts. Two budget systems had similar labels and different scopes. The redesign gives each financial task a visible entry and puts the wallet, currency and period beside the amounts they describe.
+MoneyTrack opens on the current month’s transactions. A day shows its income, expenses and records in one currency. Tap **+** to record something on that date, **Daily** to scan the month, or the search icon to find an older entry. Accounts is one tab away. **More → Available cash** opens the personal dashboard with spendable wallet cash, savings reservations and budget headroom.
 
-## Daily use
+The audited starting point was 3.1.0 on main at `928377a`. Existing SQLite repositories, integer minor units, wallet identities, recurrence reconciliation and encrypted backup format continue to handle writes. Version 3.2.0 has Android build number 6 and uses the existing schema 6.
 
-Home starts with spendable wallet cash, savings reservations and the wallet selector. When multiple active wallets share the selected currency it also shows their combined available cash. Expenses, income and transfers open from the wallet card. The current month, recent entries and the next dated obligation follow. Current cash and outstanding principal are presented separately. A wallet budget can be lower than available cash because it is a spending plan.
+## Daily workflows
 
-Activity groups entries by date and supports note/category search and wallet, type, date, category and original-currency filters. Tap an entry to read its details, attach a receipt, edit or delete with confirmation. Undo retains the original ID and document links. The ledger list still builds rows on demand.
+|Task|Controls and expected result|
+|---|---|
+|Check a date|Select a day on the seven-column calendar. The ledger below shows that day's records, signed totals and account names. Arrows change months. Daily opens the same month's grouped history.|
+|Record an expense|From the ledger tap **+**, choose a category, enter an amount and tap **Save expense**. This takes five interactions when opening the category chooser and choosing an item are counted separately. Date, type and account are visible before saving. A different account or note adds a step.|
+|Reuse an entry|From the editor tap the star, choose a previous entry, check the editable details and save. Ranking uses this account, currency and transaction type. The new record receives its own ID.|
+|Transfer or schedule|Transfer uses two wallets and previews the receiving amount. A foreign-currency transfer requires a manual rate. Under More details, a recurring schedule can start from the current draft. Saving the rule closes the draft and the default mode requires occurrence confirmation.|
+|Inspect spending|Statistics opens this month’s income and expenses for the selected currency. Tap a category or chart slice for the contributing records. Trends and comparisons opens the existing period controls, historical cash, projects and reports.|
+|Check an account|Accounts groups wallets and totals by original currency. Open a wallet for dated history, reservations and management. Transfer and New wallet are available here.|
+|Find a tool|More has 21 destinations, short descriptions, aliases, ordered pins and recent tools. Searching “borrow” opens the path to debts, “save money” to savings goals and “backup” to encrypted recovery. Results can also include matching wallets or transactions.|
 
-Add starts with the amount and uses the selected wallet’s history to order category shortcuts and suggest the more frequently used entry type. Ties and fresh wallets default to Expense. The editor requires a category and shows the working wallet. A transfer opens its own two-wallet form. Users can request a receipt under More details, save the entry and attach the document to its assigned ID.
+Ordinary expenses and income feed the monthly and daily totals. Transfers appear once in each relevant currency's ledger and have no effect on the income or expense counters. Debt principal and reservation movements remain available in the wallet history. Setting a budget changes the plan. An emergency contribution reserves wallet cash, and a confirmed withdrawal releases it. The available-cash dashboard keeps these amounts separate. Fresh installations default to AFN and a populated installation uses its stored currencies.
 
-Insights includes the reporting currency and period controls, contributing entries, category drill-down, current monthly spending limit, project access and dated wallet cash. Cash history uses original-currency opening balances, dated transactions, transfer legs and active principal postings. Wallet opening balances have no historical timestamps. The reconstruction uses their current values and includes reserved cash. Monthly overview retains the earlier weekly chart, comparisons and position details.
+## Visual comparison
 
-Explore groups 20 destinations by purpose. Users can search for a task, pin and reorder shortcuts or reopen a recent tool. Matching ledger entries and wallet names appear in their own sections. No search terms or financial amounts are sent to a server.
+The available reference was the Realbyte Android income-entry screenshot on slide 3 of a 2023 usability study. The official listing and support site returned HTTP 403 from the cloud network. No current reference image for the calendar, accounts, budgets or statistics was available. The requested navigation and calendar specifications guided those screens. The reference analysis records what could be observed. [Reference analysis and sources](realbyte-reference-analysis.md)
 
-## Other changes
+The MoneyTrack captures below use the actual Flutter screens and a test-only AFN ledger at 390 × 780. The February fixture includes income, expenses, a transfer and a populated leap day. These records are confined to tests.
 
-Wallet cards show account type, currency, cash and reservations. Wallet budgets display period, base limit, rollover, actual spending, progress and overrun. Deleting a limit requires confirmation. Savings goals show the amount still needed. Debt records are grouped by who owes whom. The upcoming list orders unpaid dated debts, scheduled entries and pending confirmations by date. Project cards show income, expenses and net result in project currency. Recurring rules retain separate automatic and review modes. Backup shows the last time Android confirmed sharing an encrypted file. A cancelled or unconfirmed share does not advance that date.
+|Screen|Capture|
+|---|---|
+|Calendar and selected-day ledger|[Calendar](screenshots/calendar.png)|
+|Daily records|[Daily view](screenshots/daily.png)|
+|Ordinary entry|[Expense form](screenshots/entry.png) · [Dark income form](screenshots/entry-dark-income.png)|
+|Monthly category statistics|[Statistics](screenshots/statistics.png)|
+|Wallet balances and transfer access|[Accounts](screenshots/accounts.png)|
 
-The Material theme uses a blue action color, independent cash-flow colors, bundled Jakarta and Arabic-script fonts and tabular financial amounts. Navigation and feature names have visible text. The app uses the system text scaler and native Material back navigation. The quick guide is optional.
+|Aspect|Observation and resulting choice|
+|---|---|
+|Structure and alignment|Both income forms show a compact heading, star, three adjacent type buttons and five aligned fields in the same order. In both, the value column starts approximately one quarter of the way across the display. Date and category values were aligned to the account column after the first rendering.|
+|Spacing and density|The historical capture fits those five rows in about a quarter of its height. MoneyTrack uses a minimum of 52 logical pixels per row, about a third of the 780-pixel viewport for five rows. The native text keyboard appears on demand. The action to save stays near the bottom.|
+|Type and color|The working amounts and signed day totals carry more visual weight than the labels. Income is blue and expense is red. Selection in the editor was adjusted after comparing the two dark income screens. The application uses its bundled fonts and original theme.|
+|Ledger and navigation|Seven columns at the captured width give each date about 56 logical pixels. A selected day shows up to two signed amounts, and full amounts appear below. One persistent row holds the four tab labels. Current reference screenshots would be needed to measure these placements against the current Realbyte app.|
+|Interaction cost|A basic expense uses the five actions described above with a preselected wallet and date. The historical screenshot confirms the fields and controls. It does not document a full timed save task. No user timing or preference measurements were collected.|
 
-## Task walkthroughs
+## Data preservation and verification
 
-Counts assume an unlocked app on Home, an existing default wallet and reachable features. A field entry or picker choice counts as one meaningful action. Keyboard digits, scrolling and system confirmation steps vary by device. These are automated task walkthroughs and interaction estimates. Human usability testing remains open.
+The tests exercise leap days, short months, year transitions, per-currency summaries, same-currency wallet isolation, neutral transfers and direct chart-to-record drill-down. Widget flows cover entry and decimal precision, frequent-entry reuse, rapid repeat taps on Save, transfer balances, scheduled drafts, goal creation, feature aliases and all directory destinations. Small-screen checks run at 320 × 640 with 1.6× text in both themes.
 
-|Task|Expected path and meaningful actions|Verified completion|
-|---|---|---|
-|Record an expense|Home → Add expense → enter amount → choose category → Save, 4 actions including entry|One expense appears in the selected wallet with the original currency and exact minor units.|
-|Find an old transaction|Activity → enter note → tap result, 3 actions|A month-old expense opens with its receipt, edit and delete actions.|
-|Transfer cash|Home → Transfer money → choose destination → enter amount → Confirm, 4 actions with the source preselected|The form test explicitly selects both wallets and checks that a USD 12.34 transfer creates one transfer and debits and credits the correct wallets. Cross-currency transfers also require a rate.|
-|Find debt tracking|Explore → search “borrowed money” → Debts and loans, 3 actions|The debt register opens. Repayment and principal accounting have separate regression coverage.|
-|Create a savings goal|Explore → search “saving” → Savings goals → New goal → name → target → Save, 7 actions|A USD 300 target is persisted with zero reserved until the first contribution.|
-|Open project finances|Explore → search “project” → Projects → select a project, 4 actions|The directory reaches Projects. The populated project flow test opens its detail and checks the cash accounting view.|
-|Find backup and restore|Explore → search “backup” → Backup and restore, 3 actions|The encrypted backup screen opens. Separate restore tests authenticate, stage, verify and roll back financial and receipt data.|
+The personal-finance regressions cover repeating and custom budget boundaries, rollover after overspending, category exclusions, emergency contributions and withdrawal previews, and encrypted backup/restore. Populated upgrade fixtures cover schemas 1 through 5. The 2.0 fixture verifies original wallet balances, transaction IDs and linked receipt metadata. Direct SQLite checks also exercise rollback and a 25,001-entry history. A restored backup keeps the original financial identities and reservation settings.
 
-## Verification and remaining work
+All 128 Flutter tests passed locally on Flutter 3.35.6, following a 126-test baseline on 3.1. Flutter analysis completed with zero errors, four warnings and 45 information-level findings under the repository’s nonfatal settings. The four warnings concern nullability and dead code in backup and startup.
 
-The baseline suite passed 122 tests before UI changes. All 126 tests passed locally on Flutter 3.35.6. Flutter analysis completed with zero errors, four warnings and 45 information-level findings. The redesigned suite covers all directory destinations, original-record actions, scoped wallet filtering, cash history across currencies, a saved goal and a posted transfer. Other tests cover a busy-day lazy ledger, empty states, small 320-pixel layouts at 1.6 text scale in both themes, period boundaries, budget rollover after overspending, emergency deposits and release, migration fixtures and encrypted restoration. The direct SQLite checks exercise populated schemas 1 through 5, transaction IDs, balances, receipts, rollback and a 25,001-entry history. No ledger schema change was required.
+The Android workflow analyzes and tests the Flutter application, builds a debug-signed APK and packages it with a SHA-256 checksum. The release handoff supplies the completed run and downloadable artifact. [Android verification workflow](../.github/workflows/android-test-apk.yml)
 
-The Android workflow uses pinned Flutter 3.35.6, Java 17 and debug signing. Its uploaded ZIP contains the device-test APK and SHA-256 checksum. Final workflow status and the artifact link are supplied with the release handoff. The analyzer uses the repository's nonfatal warning and information settings.
+## On-device checks still open
 
-Physical-device verification is still needed for screen-reader announcements, keyboard and font preferences, biometric hardware, camera/document picking, notification delivery, the chosen backup destination and restore from that file. Human observation is still needed to judge whether these paths are intuitive. Test an in-place upgrade with a matching signing key and a verified backup. Android requires a matching app signature to install over an existing copy. Tags and editable personal subcategories have no existing ledger support and were omitted.
+Try recording an expense using your keyboard, finding it on the calendar, and opening its receipt. Check TalkBack and the larger text size you use. In the personal dashboard, compare one wallet’s cash, reserved amount and available cash with your existing records. On a test installation, check camera or document access, biometric unlock, reminder delivery and restoring a copy of your encrypted backup from your preferred Android file provider. Human testing of ease of use and comparison with the current Realbyte release remain open. Personal tags and editable personal subcategories have no backing financial records in this MoneyTrack version. [Feature inventory](moneytrack-feature-inventory.md) · [Navigation map](moneytrack-navigation-map.md)

@@ -94,17 +94,17 @@ Future<void> _scrollTo(WidgetTester tester, Finder f) =>
 void main() {
   testWidgets('empty app shows empty states on every tab', (tester) async {
     await _boot(tester);
-    expect(find.text('Today'), findsOneWidget);
-    await _scrollTo(tester, find.text('Start tracking'));
-    expect(find.text('Start tracking'), findsOneWidget);
-    await tester.tap(find.widgetWithText(NavigationDestination, 'Activity'));
-    await tester.pumpAndSettle();
-    expect(find.text('No transactions yet'), findsOneWidget);
-    await tester.tap(find.text('Explore').last);
-    await tester.pumpAndSettle();
+    expect(find.text('Calendar'),findsOneWidget);
+    expect(find.text('No entries on this date.'),findsOneWidget);
+    await tester.tap(find.byTooltip('Search all transactions'));await tester.pumpAndSettle();
+    expect(find.text('No transactions yet'),findsOneWidget);
+    await tester.pageBack();await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(NavigationDestination,'More'));await tester.pumpAndSettle();
     final search = find.byType(TextField);
     final titles = {
-      MoneyFeature.wallets: 'Wallets',
+      MoneyFeature.overview: 'Available cash',
+      MoneyFeature.activity:'Search all transactions',
+      MoneyFeature.wallets: 'Accounts',
       MoneyFeature.transfer: 'Transfer money',
       MoneyFeature.categories: 'Categories',
       MoneyFeature.add: 'New transaction',
@@ -130,13 +130,9 @@ void main() {
       expect(tile, findsOneWidget, reason: feature.title);
       await tester.tap(tile);
       await tester.pumpAndSettle();
-      if (feature == MoneyFeature.activity ||
-          feature == MoneyFeature.insights) {
-        expect(
-          search,
-          feature == MoneyFeature.activity ? findsOneWidget : findsNothing,
-        );
-        await tester.tap(find.widgetWithText(NavigationDestination, 'Explore'));
+      if (feature == MoneyFeature.insights) {
+        expect(find.text('Trends and comparisons'),findsOneWidget);
+        await tester.tap(find.widgetWithText(NavigationDestination,'More'));
       } else {
         expect(find.byType(ExploreScreen), findsNothing, reason: feature.title);
         expect(find.text(titles[feature]!), findsWidgets, reason: feature.name);
@@ -153,7 +149,7 @@ void main() {
       }
       await tester.pumpAndSettle();
     }
-    for (final term in ['borrowed money', 'saving', 'project', 'backup']) {
+    for (final term in ['borrowed money', 'save money', 'business', 'monthly limit', 'backup']) {
       await tester.enterText(search, term);
       await tester.pumpAndSettle();
       expect(find.byType(ListTile), findsWidgets, reason: term);
@@ -166,7 +162,7 @@ void main() {
     expect(find.text('Recently opened'), findsOneWidget);
   });
 
-  testWidgets('add an expense via keypad updates dashboard and list', (
+  testWidgets('save a decimal expense from the calendar and update the day and month', (
     tester,
   ) async {
     final container = await _boot(tester);
@@ -179,12 +175,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Enter an amount greater than zero'), findsOneWidget);
 
-    for (final k in ['4', '2', '.', '5']) {
-      await tester.tap(
-        find.bySemanticsLabel(k == '.' ? 'Decimal point' : k).last,
-      );
-      await tester.pump();
-    }
+    await tester.enterText(find.byKey(const ValueKey('entry-amount')),'42.5');
     await tester.pumpAndSettle();
     expect(find.text('42.5'), findsOneWidget);
 
@@ -193,7 +184,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Choose a category'), findsOneWidget);
 
-    await tester.tap(find.bySemanticsLabel('Food & Dining'));
+    await tester.tap(find.text('Choose category'));await tester.pumpAndSettle();
+    await tester.tap(find.text('Food & Dining'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Save expense'));
     await tester.pump(const Duration(milliseconds: 1500));
@@ -231,6 +223,9 @@ void main() {
         reserved: {2: 500000},
       );
       final c = await _boot(tester, wallets: wallets);
+      await tester.tap(find.widgetWithText(NavigationDestination,'More'));await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField),'available cash');await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('feature-overview')));await tester.pumpAndSettle();
       await tester.tap(find.text('Bank · USD'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Cash · AFN').last);
@@ -239,8 +234,8 @@ void main() {
       await tester.tap(find.text('Add expense'));
       await tester.pumpAndSettle();
       expect(find.text('Add note'), findsNothing);
-      await tester.tap(find.bySemanticsLabel('5').last);
-      await tester.tap(find.text('All categories'));
+      await tester.enterText(find.byKey(const ValueKey('entry-amount')),'5');
+      await tester.tap(find.text('Choose category'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Groceries').last);
       await tester.pumpAndSettle();
@@ -253,7 +248,8 @@ void main() {
         (entry.walletId, entry.currency, entry.amountMinor),
         (2, AppCurrency.afn, 500),
       );
-      await tester.tap(find.widgetWithText(NavigationDestination, 'Activity'));
+      await tester.pageBack();await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(NavigationDestination,'Transactions'));
       await tester.pumpAndSettle();
       expect(find.text('Groceries'), findsWidgets);
     },
@@ -263,7 +259,7 @@ void main() {
     'find an older transaction and open its original receipt actions',
     (tester) async {
       await _boot(tester, seed: true);
-      await tester.tap(find.widgetWithText(NavigationDestination, 'Activity'));
+      await tester.tap(find.byTooltip('Search all transactions'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), 'Weekend trip');
       await tester.pump(const Duration(milliseconds: 250));
@@ -278,7 +274,8 @@ void main() {
 
   testWidgets('seeded data renders statistics without errors', (tester) async {
     await _boot(tester, seed: true);
-    await tester.tap(find.widgetWithText(NavigationDestination, 'Insights'));
+    await tester.tap(find.widgetWithText(NavigationDestination,'Statistics'));await tester.pumpAndSettle();
+    await _scrollTo(tester,find.text('Trends and comparisons'));await tester.tap(find.text('Trends and comparisons'));
     await tester.pumpAndSettle();
     await _scrollTo(tester, find.text('Expense breakdown'));
     expect(find.text('Expense breakdown'), findsOneWidget);

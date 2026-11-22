@@ -96,13 +96,15 @@ abstract final class FinanceCalculator {
   }
 
   static List<CategoryShare> expenseByCategory(
-      Iterable<TransactionModel> txs, DateSpan span) {
+      Iterable<TransactionModel> txs, DateSpan span) => categoryDistribution(txs,span,income:false);
+
+  static List<CategoryShare> categoryDistribution(Iterable<TransactionModel> txs,DateSpan span,{required bool income}) {
     _requireSingleCurrency(txs);
     final sums = <String, int>{};
     final counts = <String, int>{};
     var total = 0;
     for (final t in txs) {
-      if (!t.type.isExpense || !span.contains(t.occurredAt)) continue;
+      if (t.type.isIncome != income || !span.contains(t.occurredAt)) continue;
       sums[t.categoryId] = (sums[t.categoryId] ?? 0) + t.amountMinor;
       counts[t.categoryId] = (counts[t.categoryId] ?? 0) + 1;
       total += t.amountMinor;
