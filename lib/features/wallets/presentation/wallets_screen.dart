@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/currency.dart';
-import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/money.dart';
 import '../../../data/models/wallet.dart';
 import '../../planning/presentation/planning_screens.dart';
@@ -34,19 +33,22 @@ class WalletsScreen extends ConsumerWidget {
             Text('Balances by currency', style: Theme.of(context).textTheme.titleMedium),
             const Text('Original amounts · no exchange rates applied'),
             const SizedBox(height: 12),
-            for (final entry in ref.watch(currencyBalancesProvider).entries)
-              ListTile(title: Text(entry.key.code),
-                trailing: Text(Money.format(entry.value, entry.key))),
-            const Divider(),
+            Wrap(spacing:8,runSpacing:8,children:[for(final entry in ref.watch(currencyBalancesProvider).entries)
+              Chip(label:Text('${entry.key.code} · ${Money.format(entry.value,entry.key)}'))]),
+            const SizedBox(height:20),
+            Text('Your wallets',style:Theme.of(context).textTheme.titleMedium),
             if (snapshot.wallets.isEmpty) const Padding(padding: EdgeInsets.all(24),
               child: Text('Create your first wallet to start tracking.')),
             for (final wallet in snapshot.wallets)
               Card(child: ListTile(
                 leading: Icon(wallet.archived ? Icons.archive_outlined : Icons.account_balance_wallet_outlined,
-                    color: AppColors.emerald),
+                    color: Theme.of(context).colorScheme.primary),
                 title: Text(wallet.name),
-                subtitle: Text('${wallet.type.label} · ${wallet.currency.code}${wallet.archived ? ' · Archived' : ''}\nAvailable ${Money.format(snapshot.available(wallet.id!), wallet.currency)} · Reserved ${Money.format(snapshot.reserved[wallet.id] ?? 0, wallet.currency)}'),
-                trailing: Text(Money.format(snapshot.balances[wallet.id]!, wallet.currency)),
+                subtitle: Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+                  Text('${wallet.type.label} · ${wallet.currency.code}${wallet.archived ? ' · Archived' : ''}'),
+                  Text(Money.format(snapshot.balances[wallet.id]!,wallet.currency), style:Theme.of(context).textTheme.titleLarge),
+                  if((snapshot.reserved[wallet.id]??0)!=0)Text('Available ${Money.format(snapshot.available(wallet.id!),wallet.currency)} · Reserved ${Money.format(snapshot.reserved[wallet.id]!,wallet.currency)}'),
+                ]),trailing:const Icon(Icons.chevron_right),
                 onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
                   builder: (_) => WalletDetailsScreen(walletId: wallet.id!))),
               )),
@@ -238,6 +240,8 @@ class _TransferState extends ConsumerState<TransferScreen> {
   final _rate = TextEditingController();
   final _note = TextEditingController();
   int? _source, _destination;
+  @override
+  void initState(){super.initState();_source=ref.read(selectedWalletProvider)?.id;}
   String? _error;
   bool _saving = false;
   @override

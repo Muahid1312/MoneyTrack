@@ -148,20 +148,20 @@ class _BudgetEditorState extends ConsumerState<_BudgetEditor> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
-                      color: AppColors.emerald.withValues(alpha: context.isDark ? 0.14 : 0.08),
+                      color: AppColors.primary.withValues(alpha: context.isDark ? 0.14 : 0.08),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.auto_awesome_outlined,
-                            size: 16, color: context.isDark ? AppColors.emeraldBright : AppColors.emeraldDeep),
+                            size: 16, color: context.isDark ? AppColors.primaryLight : AppColors.primaryDark),
                         const SizedBox(width: 6),
                         Flexible(
                           child: Text(
                             'Use ${Money.format(suggestion, currency)} · based on last month',
                             style: t.labelMedium?.copyWith(
-                                color: context.isDark ? AppColors.emeraldBright : AppColors.emeraldDeep),
+                                color: context.isDark ? AppColors.primaryLight : AppColors.primaryDark),
                           ),
                         ),
                       ],

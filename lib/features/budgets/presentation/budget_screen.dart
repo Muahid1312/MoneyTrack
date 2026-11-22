@@ -46,7 +46,7 @@ class BudgetScreen extends ConsumerWidget {
           ),
         ),
         leadingWidth: 64,
-        title: const Text('Budget'),
+        title: const Text('Monthly spending limit'),
         actions: [
           IconButton(tooltip: 'Wallet budgets', icon: const Icon(Icons.account_balance_wallet_outlined),
             onPressed: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) =>
@@ -69,9 +69,9 @@ class BudgetScreen extends ConsumerWidget {
             ? Center(
                 child: EmptyState(
                   icon: Icons.track_changes_rounded,
-                  title: 'No budget yet',
+                  title: 'No monthly limit yet',
                   message:
-                      'Set a monthly spending limit to track how much you have left and get warned at 80% and 100%.',
+                      'Set a limit across all ${currency.code} wallets. You’ll get an alert at 80% and 100%.',
                   actionLabel: 'Set monthly budget',
                   onAction: () => showBudgetEditor(context),
                 ),

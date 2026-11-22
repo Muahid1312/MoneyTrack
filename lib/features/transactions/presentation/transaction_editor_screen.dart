@@ -27,6 +27,7 @@ import '../../projects/application/project_providers.dart';
 import '../../projects/presentation/project_assignment_sheet.dart';
 import '../../settings/application/settings_controller.dart';
 import '../../wallets/application/wallet_providers.dart';
+import '../../wallets/presentation/wallets_screen.dart';
 import '../application/transactions_controller.dart';
 import 'widgets/amount_keypad.dart';
 
@@ -84,6 +85,16 @@ class _TransactionEditorScreenState extends ConsumerState<TransactionEditorScree
   int _shakeCategory = 0;
   bool _saving = false;
   bool _done = false;
+  bool _addReceipt = false;
+  int? _savedId;
+  Map<String,int> _usage = {};
+
+  void _readUsage() {
+    _usage = {};
+    for(final tx in ref.read(allTransactionsProvider).where((tx)=>tx.walletId==_walletId && tx.type==_type)){
+      _usage.update(tx.categoryId,(n)=>n+1,ifAbsent:()=>1);
+    }
+  }
   final _categoryScroll = ScrollController();
 
   bool get _isEdit => widget.existing != null;
@@ -103,7 +114,9 @@ class _TransactionEditorScreenState extends ConsumerState<TransactionEditorScree
     }
     _walletId = e?.walletId ?? wallet?.id ?? 1;
     _currency = e?.currency ?? wallet?.currency ?? ref.read(currencyProvider);
-    _type = e?.type ?? widget.initialType ?? TransactionType.expense;
+    final history=ref.read(allTransactionsProvider).where((t)=>t.walletId==_walletId);
+    _type=e?.type??widget.initialType??(history.where((t)=>t.type.isIncome).length*2>history.length?TransactionType.income:TransactionType.expense);
+    _readUsage();
     _amount = e == null ? AmountInput('', _currency) : AmountInput.fromMinor(e.amountMinor, _currency);
     _categoryId = e?.categoryId;
     _date = e?.occurredAt ?? ref.read(clockProvider)();
@@ -120,6 +133,7 @@ class _TransactionEditorScreenState extends ConsumerState<TransactionEditorScree
     if (t == _type) return;
     setState(() {
       _type = t;
+      _readUsage();
       if (t.isExpense && _project.clientReceipt) {
         _project = ProjectAssignment(projectId: _project.projectId,
           categoryId: _project.categoryId, rate: _project.rate);
@@ -243,7 +257,7 @@ class _TransactionEditorScreenState extends ConsumerState<TransactionEditorScree
           updatedAt: now,
         ));
       } else {
-        await controller.add(TransactionModel(
+        final saved=await controller.add(TransactionModel(
           walletId: _walletId,
           currency: _currency,
           projectId: _project.projectId, projectCategoryId: _project.categoryId,
@@ -257,6 +271,7 @@ class _TransactionEditorScreenState extends ConsumerState<TransactionEditorScree
           createdAt: now,
           updatedAt: now,
         ));
+        _savedId=saved.id;
       }
     } catch (e) {
       if (!mounted) return;
@@ -274,6 +289,13 @@ class _TransactionEditorScreenState extends ConsumerState<TransactionEditorScree
     }
     if (!mounted) return;
     HapticFeedback.mediumImpact();
+    if (!_isEdit && _savedId!=null) {
+      selectWallet(ref,_walletId);
+      if (_addReceipt) {
+        await Navigator.push<void>(context,MaterialPageRoute(builder:(_)=>AttachmentsScreen(transactionId:_savedId!)));
+        if(!mounted)return;
+      }
+    }
     // ignore: deprecated_member_use
     SemanticsService.announce(
         _isEdit ? 'Transaction updated' : 'Transaction saved', TextDirection.ltr);
@@ -325,6 +347,11 @@ class _TransactionEditorScreenState extends ConsumerState<TransactionEditorScree
                 final column = Column(
                   children: [
                     _header(t),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      child: _amountDisplay(currency, accent, t, compact),
+                    ),
+
                     if (ref.watch(walletRepositoryProvider) != null)
                       Padding(padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
                         child: walletState.when(
@@ -349,6 +376,7 @@ class _TransactionEditorScreenState extends ConsumerState<TransactionEditorScree
                                     paymentReference: _project.paymentReference);
                                 }
                                 _walletId = id!; _currency = w.currency;
+                                _readUsage();
                               });
                             },
                           ),
@@ -365,10 +393,6 @@ class _TransactionEditorScreenState extends ConsumerState<TransactionEditorScree
                         activeColorOf: (v) => v.isIncome ? AppColors.emerald : p.expense,
                         onChanged: _setType,
                       ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      child: _amountDisplay(currency, accent, t, compact),
                     ),
                     SizedBox(height: compact ? AppSpacing.md : AppSpacing.lg),
                     _ShakeX(trigger: _shakeCategory, child: _categoryPicker(t)),
@@ -395,6 +419,7 @@ class _TransactionEditorScreenState extends ConsumerState<TransactionEditorScree
                             _project.clientReceipt ? 'Client receipt · ${_project.paymentReference ?? "add payment reference"}' : 'Project category & historical conversion'),
                           trailing: const Icon(Icons.chevron_right), onTap: _saving ? null : _editProject)),
                     _metaRow(t),
+                    if(!_isEdit)CheckboxListTile(title:const Text('Add a receipt after saving'),value:_addReceipt,onChanged:(v)=>setState(()=>_addReceipt=v??false)),
                       ],
                     ),
                   ],
@@ -453,7 +478,7 @@ class _TransactionEditorScreenState extends ConsumerState<TransactionEditorScree
               onPressed: _delete,
             )
           else
-            const SizedBox(width: 44),
+            TextButton.icon(onPressed: _saving ? null : ()=>Navigator.of(context).push(MaterialPageRoute<void>(builder:(_)=>const TransferScreen())),icon:const Icon(Icons.swap_horiz),label:const Text('Transfer')),
         ],
       ),
     );
@@ -557,7 +582,11 @@ class _TransactionEditorScreenState extends ConsumerState<TransactionEditorScree
 
   Widget _categoryPicker(TextTheme t) {
     final p = context.palette;
-    final cats = Categories.forType(_type);
+    final all = Categories.forType(_type);
+    final cats = [...all]..sort((a,b) {
+      final byUse=(_usage[b.id]??0).compareTo(_usage[a.id]??0);
+      return byUse!=0?byUse:all.indexOf(a).compareTo(all.indexOf(b));
+    });
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

@@ -12,10 +12,10 @@ abstract final class AppTheme {
   static ThemeData _build(AppPalette p, Brightness brightness) {
     final isDark = brightness == Brightness.dark;
     final scheme = ColorScheme.fromSeed(
-      seedColor: AppColors.emerald,
+      seedColor: AppColors.primary,
       brightness: brightness,
     ).copyWith(
-      primary: isDark ? AppColors.emeraldBright : AppColors.emeraldDeep,
+      primary: isDark ? AppColors.primaryLight : AppColors.primary,
       onPrimary: isDark ? AppColors.navy900 : Colors.white,
       secondary: isDark ? AppColors.slate200 : AppColors.navy900,
       onSecondary: isDark ? AppColors.navy900 : Colors.white,
@@ -81,21 +81,21 @@ abstract final class AppTheme {
         border: controlBorder.copyWith(borderSide: BorderSide.none),
         enabledBorder: controlBorder.copyWith(borderSide: BorderSide.none),
         focusedBorder: controlBorder.copyWith(
-          borderSide: const BorderSide(color: AppColors.emerald, width: 1.5),
+          borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
         ),
         errorBorder: controlBorder.copyWith(
             borderSide: BorderSide(color: p.expense, width: 1.2)),
       ),
       textSelectionTheme: TextSelectionThemeData(
-        cursorColor: AppColors.emerald,
-        selectionColor: AppColors.emerald.withValues(alpha: 0.25),
-        selectionHandleColor: AppColors.emerald,
+        cursorColor: AppColors.primary,
+        selectionColor: AppColors.primary.withValues(alpha: 0.25),
+        selectionHandleColor: AppColors.primary,
       ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
         backgroundColor: isDark ? AppColors.navy800 : AppColors.navy900,
         contentTextStyle: text.bodyMedium?.copyWith(color: Colors.white),
-        actionTextColor: AppColors.emeraldBright,
+        actionTextColor: AppColors.primaryLight,
         elevation: 0,
         insetPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
         shape: const RoundedRectangleBorder(borderRadius: AppRadii.control),
@@ -127,14 +127,14 @@ abstract final class AppTheme {
             isDark ? AppColors.navy800 : AppColors.navy900,
         rangePickerHeaderForegroundColor: Colors.white,
         rangeSelectionBackgroundColor:
-            AppColors.emerald.withValues(alpha: 0.18),
-        todayBorder: const BorderSide(color: AppColors.emerald),
+            AppColors.primary.withValues(alpha: 0.18),
+        todayBorder: const BorderSide(color: AppColors.primary),
         shape: const RoundedRectangleBorder(borderRadius: AppRadii.hero),
         dayStyle: text.bodyMedium,
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: isDark ? AppColors.emeraldBright : AppColors.emeraldDeep,
+          foregroundColor: isDark ? AppColors.primaryLight : AppColors.primaryDark,
           textStyle: text.labelLarge,
           shape: const RoundedRectangleBorder(borderRadius: AppRadii.control),
         ),
@@ -159,7 +159,7 @@ abstract final class AppTheme {
       ),
       listTileTheme: ListTileThemeData(iconColor: p.textSecondary, contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6)),
       progressIndicatorTheme:
-          const ProgressIndicatorThemeData(color: AppColors.emerald),
+          const ProgressIndicatorThemeData(color: AppColors.primary),
       tooltipTheme: TooltipThemeData(
         decoration: BoxDecoration(
           color: AppColors.navy800,

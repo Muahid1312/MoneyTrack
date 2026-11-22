@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'dart:convert';
-import 'dart:typed_data';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:path/path.dart' as p;
@@ -23,12 +22,12 @@ class Phase4Fixture {
   late Directory root;late AppDatabase database;late SharedPreferences prefs;late GenerationStore store;
   AppRuntime get runtime=>AppRuntime(database:database,store:store,preferences:prefs,restore:(_) async=>throw UnimplementedError());
   static final image=base64Decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4//8/AAX+Av4N70a4AAAAAElFTkSuQmCC');
-  Future<void> open() async {
+  Future<void> open({DatabaseFactory? factory}) async {
     AccessGuard.locked=false;AccessGuard.maintenance=false;sqfliteFfiInit();
     SharedPreferences.setMockInitialValues({'currency':'USD','theme_mode':'dark','user_name':'Test user','monthly_budget_minor':50000,'local_reminders':true});
     prefs=await SharedPreferences.getInstance();root=await Directory.systemTemp.createTemp('moneytrack-phase4-');
-    store=GenerationStore(Directory(p.join(root.path,'moneytrack-data')),factory:databaseFactoryFfi)..currentId='11111111111111111111111111111111';
-    await store.current.create(recursive:true);database=await AppDatabase.open(factory:databaseFactoryFfi,path:p.join(store.current.path,'moneytrack.db'));
+    store=GenerationStore(Directory(p.join(root.path,'moneytrack-data')),factory:factory??databaseFactoryFfi)..currentId='11111111111111111111111111111111';
+    await store.current.create(recursive:true);database=await AppDatabase.open(factory:factory??databaseFactoryFfi,path:p.join(store.current.path,'moneytrack.db'));
   }
   TransactionModel entry(int amount,{TransactionType type=TransactionType.expense,int? projectId,String? rate,String note='Note',DateTime? at}){
     final date=at??DateTime(2026,1,1);return TransactionModel(type:type,amountMinor:amount,categoryId:type.isIncome?'salary':'food',

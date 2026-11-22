@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+
 
 /// Typography built on Plus Jakarta Sans (bundled under assets/google_fonts
 /// so the app renders identically while fully offline).
@@ -8,12 +8,13 @@ abstract final class AppTypography {
 
   static TextStyle _base(double size, FontWeight weight,
           {double? height, double? letterSpacing}) =>
-      GoogleFonts.plusJakartaSans(
+      TextStyle(
+        fontFamily: 'Plus Jakarta Sans',
         fontSize: size,
         fontWeight: weight,
         height: height,
         letterSpacing: letterSpacing,
-      );
+      ).copyWith(fontFamilyFallback: const ['Noto Arabic']);
 
   static TextTheme textTheme(Color primary, Color secondary) {
     return TextTheme(

@@ -53,7 +53,7 @@ abstract final class ReportExporter {
     final name=SecureCrypto.random(12).map((v)=>v.toRadixString(16).padLeft(2,'0')).join();final file=File(p.join(folder.path,'moneytrack-report-$name.${asPdf?'pdf':'csv'}'));
     await file.writeAsBytes(asPdf?await pdf(document):utf8.encode(csv(document)),flush:true);return file;
   }
-  static Future<void> share(File file,{Rect? origin}) async {AccessGuard.writable();await SharePlus.instance.share(ShareParams(files:[XFile(file.path)],subject:'MoneyTrack export',sharePositionOrigin:origin));}
+  static Future<ShareResultStatus> share(File file,{Rect? origin}) async {AccessGuard.writable();final result=await SharePlus.instance.share(ShareParams(files:[XFile(file.path)],subject:'MoneyTrack export',sharePositionOrigin:origin));return result.status;}
   static Future<void> cleanup({bool all=false}) async {final root=Directory(p.join((await getTemporaryDirectory()).path,'exports'));if(!await root.exists())return;
     await for(final file in root.list(followLinks:false)){if(file is File&&RegExp(r'^moneytrack-(report|backup)-[0-9a-f]+\.(pdf|csv|mtbackup)$').hasMatch(p.basename(file.path))&&(all||DateTime.now().difference(await file.lastModified()).inHours>=24))await file.delete();}}
 }

@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'package:intl/intl.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
@@ -32,10 +34,20 @@ class _BackupState extends ConsumerState<BackupScreen>{
       final folder=Directory(p.join((await getTemporaryDirectory()).path,'exports'));await folder.create(recursive:true);
       final token=SecureCrypto.random(12).map((v)=>v.toRadixString(16).padLeft(2,'0')).join();final file=File(p.join(folder.path,'moneytrack-backup-$token.mtbackup'));
       await file.writeAsBytes(encrypted,flush:true);
-      if(context.mounted)await ReportExporter.share(file,origin:Rect.fromLTWH(MediaQuery.sizeOf(context).width/2,MediaQuery.sizeOf(context).height/2,1,1));
-      if(mounted)setState(()=>_message='Encrypted backup created. Keep its passphrase separately; it cannot be recovered by the app.');
+      if(!mounted)return;
+      final result=await ReportExporter.share(file,origin:Rect.fromLTWH(MediaQuery.sizeOf(context).width/2,MediaQuery.sizeOf(context).height/2,1,1));
+      if(result==ShareResultStatus.success)await runtime.preferences.setInt('backup.lastShared',DateTime.now().millisecondsSinceEpoch);
+      if(mounted)setState(()=>_message=switch(result){
+        ShareResultStatus.success=>'Encrypted backup shared. Check the destination and keep its passphrase separately.',
+        ShareResultStatus.dismissed=>'Sharing was cancelled.',
+        ShareResultStatus.unavailable=>'Check the destination. Android could not confirm whether the backup was shared.',
+      });
     }catch(_){if(mounted)setState(()=>_message='Backup was not exported. Use matching passphrases of at least 12 characters and check for missing receipts or the 32 MiB backup limit.');}
     finally {AccessGuard.maintenance=false;_exportPass.clear();_confirm.clear();if(mounted)setState(()=>_busy=false);}
+  }
+  String _lastShared(){
+    final stamp=ref.read(appRuntimeProvider)?.preferences.getInt('backup.lastShared');
+    return stamp==null?'No confirmed backup share yet':DateFormat.yMMMd().add_jm().format(DateTime.fromMillisecondsSinceEpoch(stamp));
   }
   Future<void> _choose() async {if(_busy)return;setState(()=>_busy=true);
     try {final file=await DocumentBridge.pick('backup');if(file!=null){BackupCodec.inspect(file.bytes);setState((){_selected=file;_message='Format recognized. Enter the backup passphrase to authenticate and validate it.';});}}
@@ -59,6 +71,7 @@ class _BackupState extends ConsumerState<BackupScreen>{
     finally {AccessGuard.maintenance=false;_restorePass.clear();_pin.clear();if(stage!=null)await runtime.store.discard(stage!.id);if(mounted)setState(()=>_busy=false);}
   }
   @override Widget build(BuildContext context)=>PopScope(canPop:!_busy,child:Scaffold(appBar:AppBar(title:const Text('Encrypted backup & restore')),body:ListView(padding:const EdgeInsets.all(24),children:[
+    ListTile(contentPadding:EdgeInsets.zero,leading:const Icon(Icons.history),title:const Text('Last backup shared on this device'),subtitle:Text(_lastShared())),
     const Text('Portable backups include financial records, receipts and app preferences. AES-256-GCM encryption uses a separate passphrase. Device PIN verifiers, biometric keys and platform permissions are never exported.'),
     const Text('All receipts must be present. Portable backups are limited to 32 MiB, including up to 16 MiB of receipt content. No unencrypted backup is produced.'),
     const SizedBox(height:20),Text('Create encrypted backup',style:Theme.of(context).textTheme.titleLarge),

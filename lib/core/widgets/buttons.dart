@@ -27,7 +27,7 @@ class PrimaryButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final enabled = onPressed != null && !loading;
-    final base = destructive ? const Color(0xFFBE123C) : AppColors.emeraldDeep;
+    final base = destructive ? const Color(0xFFBE123C) : AppColors.primaryDark;
     final deep = destructive ? const Color(0xFF9F1239) : const Color(0xFF065F46);
     final t = Theme.of(context).textTheme;
     final content = Row(
@@ -185,7 +185,7 @@ class AppIconButton extends StatelessWidget {
                   width: 10,
                   height: 10,
                   decoration: BoxDecoration(
-                    color: AppColors.emerald,
+                    color: AppColors.primary,
                     shape: BoxShape.circle,
                     border: Border.all(color: p.background, width: 2),
                   ),

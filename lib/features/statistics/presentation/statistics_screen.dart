@@ -17,10 +17,13 @@ import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/progress.dart';
 import '../../../data/repositories/providers.dart';
 import '../../settings/application/settings_controller.dart';
+import '../../dashboard/presentation/dashboard_screen.dart';
 import '../../transactions/presentation/transaction_actions.dart';
 import '../application/statistics_providers.dart';
 import '../domain/finance_calculator.dart';
 import 'widgets/stat_charts.dart';
+import 'insight_details.dart';
+import '../../settings/presentation/settings_screen.dart';
 
 class StatisticsScreen extends ConsumerWidget {
   const StatisticsScreen({super.key});
@@ -61,8 +64,9 @@ class StatisticsScreen extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Statistics', style: t.headlineMedium),
-                  Text('${currency.code} only · original amounts', style: t.labelMedium),
+                  Text('Insights', style: t.headlineMedium),
+                  TextButton.icon(icon:const Icon(Icons.currency_exchange),label:Text('${currency.code} · Reporting currency'),onPressed:()=>Navigator.push(context,MaterialPageRoute<void>(builder:(_)=>const SettingsScreen(page:SettingsPage.currency)))),
+                  TextButton.icon(icon:const Icon(Icons.calendar_month_outlined),label:const Text('Monthly overview'),onPressed:()=>Navigator.push(context,MaterialPageRoute<void>(builder:(_)=>const MonthlyOverviewScreen()))),
                   const SizedBox(height: 4),
                   AnimatedSwitcher(
                     duration: AppDurations.medium,
@@ -107,6 +111,7 @@ class StatisticsScreen extends ConsumerWidget {
             children: data.isEmpty
                 ? [
                     _OverviewCard(data: data, currency: currency),
+                    const InsightDetails(),
                     const SizedBox(height: AppSpacing.lg),
                     AppCard(
                       child: EmptyState(
@@ -115,12 +120,13 @@ class StatisticsScreen extends ConsumerWidget {
                         message:
                             'There are no transactions in this period. Add some or choose a wider range to see charts and insights.',
                         actionLabel: 'Add transaction',
-                        onAction: () => TransactionActions.openEditor(context, ref),
+                        onAction: () => TransactionActions.openEditor(context, ref,preferredCurrency:currency),
                       ),
                     ),
                   ]
                 : [
                     _OverviewCard(data: data, currency: currency),
+                    const InsightDetails(),
                     const SizedBox(height: AppSpacing.lg),
                     _InsightRow(data: data, currency: currency),
                     const SizedBox(height: AppSpacing.xxl),
@@ -169,7 +175,7 @@ class StatisticsScreen extends ConsumerWidget {
                     const SizedBox(height: AppSpacing.xxl),
                     const SectionHeader(title: 'Expense breakdown', subtitle: 'Tap a slice or row'),
                     const SizedBox(height: AppSpacing.md),
-                    _BreakdownCard(shares: data.categories, total: data.totals.expense, currency: currency),
+                    _BreakdownCard(onEntries:(id)=>Navigator.push(context,MaterialPageRoute<void>(builder:(_)=>PeriodEntriesScreen(currency:currency,span:data.span,category:id))), shares: data.categories, total: data.totals.expense, currency: currency),
                     const SizedBox(height: AppSpacing.xxl),
                     SectionHeader(
                       title: 'Monthly comparison',
@@ -237,11 +243,10 @@ class _OverviewCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          Wrap(spacing:16,runSpacing:6,alignment:WrapAlignment.spaceBetween,
             children: [
               Text('Net cash flow',
                   style: t.labelLarge?.copyWith(color: Colors.white.withValues(alpha: 0.65))),
-              const Spacer(),
               if (savingsRate != null)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
@@ -296,19 +301,11 @@ class _OverviewCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(
-                child: _MiniStat(
-                    label: 'Income', minor: totals.income, color: AppColors.emeraldBright, currency: currency),
-              ),
-              Expanded(
-                child: _MiniStat(
-                    label: 'Expenses', minor: totals.expense, color: AppColors.roseSoft, currency: currency),
-              ),
-              _MiniCount(count: totals.count),
-            ],
-          ),
+          Wrap(spacing: 20, runSpacing: 12, children: [
+            _MiniStat(label: 'Income', minor: totals.income, color: AppColors.emeraldBright, currency: currency),
+            _MiniStat(label: 'Expenses', minor: totals.expense, color: AppColors.roseSoft, currency: currency),
+            _MiniCount(count: totals.count),
+          ]),
         ],
       ),
     );
@@ -456,7 +453,8 @@ class _InsightRow extends StatelessWidget {
 }
 
 class _BreakdownCard extends StatefulWidget {
-  const _BreakdownCard({required this.shares, required this.total, required this.currency});
+  const _BreakdownCard({required this.onEntries,required this.shares, required this.total, required this.currency});
+  final ValueChanged<String> onEntries;
   final List<CategoryShare> shares;
   final int total;
   final AppCurrency currency;
@@ -522,6 +520,7 @@ class _BreakdownCardState extends State<_BreakdownCard> {
               ),
             ),
           ),
+          if(sel!=null)TextButton(onPressed:()=>widget.onEntries(sel.category.id),child:Text('View ${sel.category.name} transactions')),
           const SizedBox(height: 20),
           for (var i = 0; i < widget.shares.length; i++)
             _CategoryRow(
