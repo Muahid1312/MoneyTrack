@@ -1,4 +1,6 @@
-# Realbyte reference analysis
+# MoneyTrack 3.2 reference analysis
+
+The 3.4 review adds independently measured Android calendar, period tab, statistics and accounts layouts. [Updated reference mapping](moneytrack-reference-mapping.md)
 
 The requested reference is Money Manager Expense & Budget for Android, package `com.realbyteapps.moneymanagerfree`. The cloud network returned HTTP 403 for Google Play and Realbyte’s help center. No current store screenshots were supplied with the written brief. The visual evidence available for this comparison is an independently published Android usability study from November 2023. [Official listing](https://play.google.com/store/apps/details?id=com.realbyteapps.moneymanagerfree) · [Study and package identification](https://github.com/tdimk2023p/final-project-donataVD/tree/0cf350b8edeb453e38963c481cd02cfbb1338cfc)
 

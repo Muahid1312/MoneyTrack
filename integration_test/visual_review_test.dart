@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:moneytrack/app/app.dart';
+import 'package:moneytrack/features/explore/explore_screen.dart';
 import 'package:moneytrack/core/constants/currency.dart';
 import 'package:moneytrack/data/database/app_database.dart';
 import 'package:moneytrack/data/repositories/group_repository.dart';
@@ -57,8 +58,8 @@ void main() {
       await temp.delete(recursive: true);
     });
     await seedVisualLedger(db, DateTime.now());
-    await c.read(walletsProvider.future);
     await c.read(transactionsProvider.future);
+    await c.read(walletsProvider.future);
     final key = GlobalKey();
     await tester.pumpWidget(
       UncontrolledProviderScope(
@@ -82,6 +83,7 @@ void main() {
         pictures[name] = base64Encode(
           bytes!.buffer.asUint8List(bytes.offsetInBytes, bytes.lengthInBytes),
         );
+        debugPrint('Captured $name');
       } finally {
         img.dispose();
       }
@@ -96,15 +98,41 @@ void main() {
     Future<void> tab(String name) =>
         tap(find.widgetWithText(NavigationDestination, name));
     Future<void> back() async {
-      await tester.binding.handlePopRoute();
+      await tester.pageBack();
       await tester.pumpAndSettle();
+    }
+
+    Future<void> searchTool(String text) async {
+      final field = find.descendant(
+        of: find.byType(ExploreScreen),
+        matching: find.byType(TextField),
+      );
+      final list = find
+          .descendant(
+            of: find.byType(ExploreScreen),
+            matching: find.byType(ListView),
+          )
+          .first;
+      await tester.dragUntilVisible(field, list, const Offset(0, 280));
+      await tester.ensureVisible(field);
+      await tester.enterText(field, text);
     }
 
     await picture('calendar', find.textContaining('Lunch with friends'));
     await tap(find.text('Daily'));
     await picture('daily', find.textContaining('Lunch with friends'));
+    for (final name in ['Weekly', 'Monthly', 'Total']) {
+      await tap(find.text(name));
+      await picture(
+        name.toLowerCase(),
+        name == 'Total'
+            ? find.text('View transactions')
+            : find.byType(ListTile),
+      );
+    }
+    await tap(find.text('Daily'));
     await tap(find.byTooltip('Add transaction'));
-    await picture('entry', find.text('Add expense'));
+    await picture('entry', find.byKey(const ValueKey('entry-amount')));
     await back();
     await tab('Statistics');
     await picture('statistics', find.text('Food & Dining'));
@@ -129,12 +157,12 @@ void main() {
     }
     await back();
     await back();
-    await tester.enterText(find.byType(TextField), 'monthly limit');
+    await searchTool('monthly limit');
     await tester.pumpAndSettle();
     await tap(find.byKey(const ValueKey('feature-monthly')));
     await picture('budget', find.text('Remaining'));
     await back();
-    await tester.enterText(find.byType(TextField), 'appearance');
+    await searchTool('appearance');
     await tester.pumpAndSettle();
     await tap(find.byKey(const ValueKey('feature-appearance')));
     await tap(find.text('Dark'));

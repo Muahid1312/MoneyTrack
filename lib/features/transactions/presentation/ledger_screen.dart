@@ -10,6 +10,9 @@ import '../../../data/models/wallet.dart';
 import '../../../data/repositories/providers.dart';
 import '../../wallets/application/wallet_providers.dart';
 import '../../wallets/presentation/wallets_screen.dart';
+import '../../statistics/domain/finance_calculator.dart';
+import '../../statistics/presentation/insight_details.dart';
+import '../../settings/application/settings_controller.dart';
 import '../application/ledger_month.dart';
 import '../application/transaction_filter.dart';
 import '../application/transactions_controller.dart';
@@ -37,8 +40,19 @@ class LedgerScreen extends ConsumerStatefulWidget {
   ConsumerState<LedgerScreen> createState() => _LedgerState();
 }
 
+enum _LedgerView {
+  daily('Daily'),
+  calendar('Calendar'),
+  weekly('Weekly'),
+  monthly('Monthly'),
+  total('Total');
+
+  const _LedgerView(this.label);
+  final String label;
+}
+
 class _LedgerState extends ConsumerState<LedgerScreen> {
-  bool calendar = true;
+  _LedgerView view = _LedgerView.calendar;
   @override
   Widget build(BuildContext context) {
     final selected = ref.watch(ledgerDateProvider);
@@ -57,6 +71,17 @@ class _LedgerState extends ConsumerState<LedgerScreen> {
       ...ref.watch(allTransactionsProvider).map((t) => t.currency),
     };
     void select(DateTime d) => ref.read(ledgerDateProvider.notifier).state = d;
+    final calendar = view == _LedgerView.calendar;
+    final annual = view == _LedgerView.monthly;
+    final entries = ref.watch(activityEntriesProvider);
+    final span = annual
+        ? DateSpan(DateTime(selected.year), DateTime(selected.year + 1))
+        : DateSpan.month(selected);
+    final annualTotals = annual
+        ? FinanceCalculator.totals(entries, span: span)
+        : null;
+    void move(int direction) =>
+        select(shiftLedgerMonth(selected, direction * (annual ? 12 : 1)));
     final days = calendar
         ? [selected.day]
         : (month.days.keys.toList()..sort((a, b) => b.compareTo(a)));
@@ -70,24 +95,41 @@ class _LedgerState extends ConsumerState<LedgerScreen> {
                 : selected.day,
           );
     final future = addDate.isAfter(today);
-    final monthTitle = DateFormat('MMMM y').format(selected);
+    final monthTitle = annual
+        ? DateFormat.y().format(selected)
+        : DateFormat('MMMM y').format(selected);
     return Scaffold(
       appBar: AppBar(
         titleSpacing: 0,
         title: Row(
           children: [
             IconButton(
-              tooltip: 'Previous month',
-              onPressed: () => select(shiftLedgerMonth(selected, -1)),
+              tooltip: annual ? 'Previous year' : 'Previous month',
+              onPressed: () => move(-1),
               icon: const Icon(Icons.chevron_left),
             ),
-            Flexible(child:TextButton(onPressed:() async {
-              final day=await chooseLedgerDate(context,selected);
-              if(mounted && day!=null)select(day);
-            },style:TextButton.styleFrom(foregroundColor:Colors.white,padding:const EdgeInsets.symmetric(horizontal:3),minimumSize:const Size(44,48)),child:Text(monthTitle,maxLines:1,overflow:TextOverflow.ellipsis,style:Theme.of(context).appBarTheme.titleTextStyle))),
+            Flexible(
+              child: TextButton(
+                onPressed: () async {
+                  final day = await chooseLedgerDate(context, selected);
+                  if (mounted && day != null) select(day);
+                },
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 3),
+                  minimumSize: const Size(44, 48),
+                ),
+                child: Text(
+                  monthTitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).appBarTheme.titleTextStyle,
+                ),
+              ),
+            ),
             IconButton(
-              tooltip: 'Next month',
-              onPressed: () => select(shiftLedgerMonth(selected, 1)),
+              tooltip: annual ? 'Next year' : 'Next month',
+              onPressed: () => move(1),
               icon: const Icon(Icons.chevron_right),
             ),
           ],
@@ -144,10 +186,32 @@ class _LedgerState extends ConsumerState<LedgerScreen> {
                 SliverToBoxAdapter(
                   child: Column(
                     children: [
-                      LedgerModes<bool>(options:const {true:'Calendar',false:'Daily'},selected:calendar,onChange:(v)=>setState(()=>calendar=v)),
+                      LayoutBuilder(
+                        builder: (context, box) {
+                          final scale =
+                              MediaQuery.textScalerOf(context).scale(14) / 14;
+                          final minWidth = 5 * 64.0 * scale;
+                          final strip = LedgerModes<_LedgerView>(
+                            options: {
+                              for (final v in _LedgerView.values) v: v.label,
+                            },
+                            selected: view,
+                            onChange: (v) => setState(() => view = v),
+                          );
+                          return minWidth > box.maxWidth
+                              ? SingleChildScrollView(
+                                  scrollDirection: Axis.horizontal,
+                                  child: SizedBox(
+                                    width: minWidth,
+                                    child: strip,
+                                  ),
+                                )
+                              : strip;
+                        },
+                      ),
                       LedgerTotals(
-                        income: month.income,
-                        expense: month.expense,
+                        income: annualTotals?.income ?? month.income,
+                        expense: annualTotals?.expense ?? month.expense,
                         currency: currency,
                       ),
                       if (calendar)
@@ -166,32 +230,49 @@ class _LedgerState extends ConsumerState<LedgerScreen> {
                     ],
                   ),
                 ),
-                for (final n in days) ...[
+                if (annual || view == _LedgerView.weekly)
                   SliverToBoxAdapter(
-                    child: _DayHeader(
-                      day: DateTime(selected.year, selected.month, n),
-                      data: month.days[n],
+                    child: _LedgerPeriods(
+                      month: selected,
+                      annual: annual,
                       currency: currency,
                     ),
                   ),
-                  if (month.days[n] case final d?)
-                    SliverList.builder(
-                      itemCount: d.records.length,
-                      itemBuilder: (_, i) => _RecordRow(
-                        record: d.records[i],
-                        names: walletNames,
+                if (view == _LedgerView.total)
+                  SliverToBoxAdapter(
+                    child: _MonthComparison(
+                      date: selected,
+                      currency: currency,
+                      month: month,
+                    ),
+                  ),
+                if (calendar || view == _LedgerView.daily)
+                  for (final n in days) ...[
+                    SliverToBoxAdapter(
+                      child: _DayHeader(
+                        day: DateTime(selected.year, selected.month, n),
+                        data: month.days[n],
                         currency: currency,
                       ),
-                    )
-                  else
-                    const SliverToBoxAdapter(
-                      child: Padding(
-                        padding: EdgeInsets.all(18),
-                        child: Text('No entries on this date.'),
-                      ),
                     ),
-                ],
-                if (!calendar && days.isEmpty)
+                    if (month.days[n] case final d?)
+                      SliverList.builder(
+                        itemCount: d.records.length,
+                        itemBuilder: (_, i) => _RecordRow(
+                          record: d.records[i],
+                          names: walletNames,
+                          currency: currency,
+                        ),
+                      )
+                    else
+                      const SliverToBoxAdapter(
+                        child: Padding(
+                          padding: EdgeInsets.all(18),
+                          child: Text('No entries on this date.'),
+                        ),
+                      ),
+                  ],
+                if (view == _LedgerView.daily && days.isEmpty)
                   const SliverToBoxAdapter(
                     child: Padding(
                       padding: EdgeInsets.all(18),
@@ -218,6 +299,152 @@ class _LedgerState extends ConsumerState<LedgerScreen> {
               ),
               child: const Icon(Icons.add),
             ),
+    );
+  }
+}
+
+class _LedgerPeriods extends ConsumerWidget {
+  const _LedgerPeriods({
+    required this.month,
+    required this.annual,
+    required this.currency,
+  });
+  final DateTime month;
+  final bool annual;
+  final AppCurrency currency;
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final monthSpan = DateSpan.month(month);
+    final weekOffset =
+        (monthSpan.start.weekday % 7 -
+            MaterialLocalizations.of(context).firstDayOfWeekIndex +
+            7) %
+        7;
+    final period = annual
+        ? DateSpan(DateTime(month.year), DateTime(month.year + 1))
+        : DateSpan(Dates.addDays(monthSpan.start, -weekOffset), monthSpan.end);
+    final entries = ref.watch(activityEntriesProvider);
+    final buckets = FinanceCalculator.buckets(
+      annual ? entries : entries.where((t) => monthSpan.contains(t.occurredAt)),
+      period,
+      annual ? BucketSize.month : BucketSize.week,
+    );
+    return Column(
+      children: [
+        for (final b in buckets)
+          Builder(
+            builder: (context) {
+              final range = DateSpan(
+                !annual && b.span.start.isBefore(monthSpan.start)
+                    ? monthSpan.start
+                    : b.span.start,
+                b.span.end,
+              );
+              return ListTile(
+                tileColor: context.palette.surface,
+                title: Text(annual ? b.longLabel : Dates.spanLabel(range)),
+                subtitle: Wrap(
+                  spacing: 14,
+                  children: [
+                    Text(
+                      'Income ${Money.format(b.income, currency)}',
+                      style: TextStyle(color: context.palette.income),
+                    ),
+                    Text(
+                      'Expenses ${Money.format(b.expense, currency)}',
+                      style: TextStyle(color: context.palette.expense),
+                    ),
+                  ],
+                ),
+                trailing: const Icon(Icons.chevron_right, size: 18),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (_) =>
+                        PeriodEntriesScreen(currency: currency, span: range),
+                  ),
+                ),
+              );
+            },
+          ),
+      ],
+    );
+  }
+}
+
+class _MonthComparison extends ConsumerWidget {
+  const _MonthComparison({
+    required this.date,
+    required this.currency,
+    required this.month,
+  });
+  final DateTime date;
+  final AppCurrency currency;
+  final LedgerMonth month;
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final previous = DateSpan.month(DateTime(date.year, date.month - 1));
+    final previousSpend = FinanceCalculator.totals(
+      ref.watch(activityEntriesProvider),
+      span: previous,
+    ).expense;
+    final settings = ref.watch(settingsProvider);
+    final limit = currency == settings.currency
+        ? settings.monthlyBudgetMinor
+        : ref.watch(settingsRepositoryProvider).budgetFor(currency);
+    final span = DateSpan.month(date);
+    return Column(
+      children: [
+        ListTile(
+          title: Text(Dates.spanLabel(span)),
+          subtitle: const Text('Spending compared with last month'),
+        ),
+        FinancialSummary([
+          (
+            label: DateFormat.MMM().format(previous.start),
+            value: Money.format(previousSpend, currency),
+            color: null,
+          ),
+          (
+            label: DateFormat.MMM().format(date),
+            value: Money.format(month.expense, currency),
+            color: null,
+          ),
+          (
+            label: 'Change',
+            value: Money.format(
+              month.expense - previousSpend,
+              currency,
+              signed: true,
+            ),
+            color: null,
+          ),
+        ]),
+        if (limit > 0)
+          FinancialSummary([
+            (
+              label: 'Monthly limit',
+              value: Money.format(limit, currency),
+              color: null,
+            ),
+            (
+              label: month.expense > limit ? 'Overspent' : 'Remaining',
+              value: Money.format((limit - month.expense).abs(), currency),
+              color: month.expense > limit ? context.palette.expense : null,
+            ),
+          ]),
+        ListTile(
+          title: const Text('View transactions'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute<void>(
+              builder: (_) =>
+                  PeriodEntriesScreen(currency: currency, span: span),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -279,10 +506,22 @@ class LedgerTotals extends StatelessWidget {
   final int income, expense;
   final AppCurrency currency;
   @override
-  Widget build(BuildContext context)=>FinancialSummary([
-    (label:'Income',value:Money.format(income,currency),color:context.palette.income),
-    (label:'Expenses',value:Money.format(expense,currency),color:context.palette.expense),
-    (label:'Net',value:Money.format(income-expense,currency),color:context.palette.textPrimary)
+  Widget build(BuildContext context) => FinancialSummary([
+    (
+      label: 'Income',
+      value: Money.format(income, currency),
+      color: context.palette.income,
+    ),
+    (
+      label: 'Expenses',
+      value: Money.format(expense, currency),
+      color: context.palette.expense,
+    ),
+    (
+      label: 'Net',
+      value: Money.format(income - expense, currency),
+      color: context.palette.textPrimary,
+    ),
   ]);
 }
 
@@ -314,7 +553,15 @@ class _Calendar extends StatelessWidget {
               Expanded(
                 child: Center(
                   child: Text(
-                    DateFormat.E(Localizations.localeOf(context).toString()).format(DateTime(2023,1,1+(local.firstDayOfWeekIndex+n)%7)),
+                    DateFormat.E(
+                      Localizations.localeOf(context).toString(),
+                    ).format(
+                      DateTime(
+                        2023,
+                        1,
+                        1 + (local.firstDayOfWeekIndex + n) % 7,
+                      ),
+                    ),
                     style: Theme.of(context).textTheme.labelSmall,
                   ),
                 ),
@@ -354,7 +601,9 @@ class _Calendar extends StatelessWidget {
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: chosen ? scheme.primaryContainer : context.palette.surface,
+                              color: chosen
+                                  ? scheme.primaryContainer
+                                  : context.palette.surface,
                               border: Border.all(
                                 width: chosen ? 1 : 0.35,
                                 color: chosen
@@ -364,10 +613,41 @@ class _Calendar extends StatelessWidget {
                             ),
                             child: Column(
                               children: [
-                                Container(padding:const EdgeInsets.symmetric(horizontal:5,vertical:1),decoration:BoxDecoration(
-                                  color:chosen?scheme.primary:null,borderRadius:BorderRadius.circular(4),
-                                  border:isToday && !chosen?Border.all(color:scheme.primary):null),
-                                  child:Text('$number',style:Theme.of(context).textTheme.labelMedium?.copyWith(color:chosen?scheme.onPrimary:isToday?scheme.primary:context.palette.textPrimary,decoration:isToday?TextDecoration.underline:null,decorationColor:chosen?scheme.onPrimary:scheme.primary,fontWeight:chosen||isToday?FontWeight.bold:FontWeight.w500))),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 5,
+                                    vertical: 1,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: chosen ? scheme.primary : null,
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: isToday && !chosen
+                                        ? Border.all(color: scheme.primary)
+                                        : null,
+                                  ),
+                                  child: Text(
+                                    '$number',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .labelMedium
+                                        ?.copyWith(
+                                          color: chosen
+                                              ? scheme.onPrimary
+                                              : isToday
+                                              ? scheme.primary
+                                              : context.palette.textPrimary,
+                                          decoration: isToday
+                                              ? TextDecoration.underline
+                                              : null,
+                                          decorationColor: chosen
+                                              ? scheme.onPrimary
+                                              : scheme.primary,
+                                          fontWeight: chosen || isToday
+                                              ? FontWeight.bold
+                                              : FontWeight.w500,
+                                        ),
+                                  ),
+                                ),
                                 for (final val in [
                                   d?.income ?? 0,
                                   -(d?.expense ?? 0),
@@ -433,11 +713,14 @@ class _RecordRow extends ConsumerWidget {
     return Column(
       children: [
         ListTile(
-          tileColor:context.palette.surface,
+          tileColor: context.palette.surface,
           dense: true,
           visualDensity: VisualDensity.compact,
           minVerticalPadding: 5,
-          leading: LedgerGlyph(t?.category.icon ?? Icons.swap_horiz, color: color),
+          leading: LedgerGlyph(
+            t?.category.icon ?? Icons.swap_horiz,
+            color: color,
+          ),
           title: Text(t?.category.name ?? 'Transfer', maxLines: 2),
           subtitle: Text(
             t != null
