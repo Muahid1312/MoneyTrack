@@ -1,27 +1,136 @@
 name: Android test APK
+
 on:
   push:
-    branches: [verify/moneytrack-3.0]
+    branches: [main, verify/moneytrack-3.0]
+  workflow_dispatch:
+    inputs:
+      visual_review:
+        description: Capture the app on an Android emulator
+        type: boolean
+        default: false
+
 permissions:
-  actions: read
   contents: read
+
+concurrency:
+  group: android-test-apk-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  diagnose:
+  verify-and-build:
+    if: ${{ !contains(github.event.head_commit.message, '[checks only]') }}
     runs-on: ubuntu-24.04
+    timeout-minutes: 40
     steps:
-      - name: Read the synthetic Android test failure
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.35.6'
+          cache: true
+      - name: Resolve dependencies
+        run: bash tool/ci_capture.sh 'Dependency resolution' flutter pub get --enforce-lockfile
+      - name: Check SQLite migration and rollback SQL
+        run: python3 tool/check_sqlite.py
+      - name: Format sources in the build workspace
+        run: dart format lib test
+      - name: Analyze
+        run: bash tool/ci_capture.sh 'Flutter analysis' flutter analyze --no-fatal-infos --no-fatal-warnings
+      - name: Build APK for device testing
+        run: bash tool/ci_capture.sh 'Android debug build' flutter build apk --debug
+      - name: Record artifact checksum
+        run: sha256sum build/app/outputs/flutter-apk/app-debug.apk > build/app/outputs/flutter-apk/app-debug.apk.sha256
+      - name: Upload debug-signed test APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: MoneyTrack-3.4.0-debug-test-apk
+          path: |
+            build/app/outputs/flutter-apk/app-debug.apk
+            build/app/outputs/flutter-apk/app-debug.apk.sha256
+          if-no-files-found: error
+          retention-days: 14
+      - name: Run automated tests
+        run: bash tool/ci_capture.sh 'Automated tests' bash tool/run_flutter_tests.sh
+
+      - name: Prepare Android walkthrough
+        if: ${{ inputs.visual_review || contains(github.event.head_commit.message, '[visual review]') }}
         run: |
-          gh api "repos/$GITHUB_REPOSITORY/actions/runs/45168645598/logs" > "$RUNNER_TEMP/test-log.zip"
-          python3 - "$RUNNER_TEMP/test-log.zip" <<'PY'
-          import sys,zipfile,re
-          with zipfile.ZipFile(sys.argv[1]) as z:
-              m=next(p for p in z.namelist() if p.endswith('_Capture Android screens.txt'))
-              log=z.read(m).decode(errors='replace')
-          i=log.find('StateError was thrown')
-          snippet=log[max(0,i-600):i+4200]
-          snippet=re.sub(r'\d{4}-\d\d-\d\dT[\d:.]+Z\s*','',snippet)
-          msg=snippet.replace('%','%25').replace('\r','%0D').replace('\n','%0A')
-          print('::warning title=Walkthrough stack::'+msg)
-          PY
+          bash tool/ci_capture.sh 'Android walkthrough build' flutter build apk --debug --no-pub --target-platform=android-x64 --target=integration_test/visual_review_test.dart
+          (cd android && ./gradlew --stop)
+          df -h .
+      - name: Pass walkthrough APK to the emulator
+        if: ${{ inputs.visual_review || contains(github.event.head_commit.message, '[visual review]') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-walkthrough-input
+          path: build/app/outputs/flutter-apk/app-debug.apk
+          retention-days: 1
+
+  android-walkthrough:
+    if: ${{ inputs.visual_review || contains(github.event.head_commit.message, '[visual review]') }}
+    needs: verify-and-build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.35.6'
+          cache: true
+      - uses: actions/download-artifact@v4
+        with:
+          name: android-walkthrough-input
+          path: build/walkthrough
+      - name: Resolve driver dependencies
+        run: bash tool/ci_capture.sh 'Driver dependencies' flutter pub get --enforce-lockfile
+      - name: Prepare emulator storage and KVM
+        run: |
+          sudo chmod a+rw /dev/kvm
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends libpulse0
+          # These preinstalled toolchains are unused on this disposable Android-only runner.
+          sudo rm -rf -- /usr/share/dotnet /usr/local/.ghcup
+          echo "ANDROID_AVD_HOME=$RUNNER_TEMP/moneytrack-avd" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/moneytrack-avd"
+          df -h .
+      - name: Install Android 30 emulator image
+        run: |
+          bash tool/ci_capture.sh 'Android system image' "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platform-tools' 'emulator' 'system-images;android-30;aosp_atd;x86_64'
+          echo no | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd --name moneytrack -k 'system-images;android-30;aosp_atd;x86_64'
+          df -h .
+      - name: Start Android emulator
+        run: bash tool/ci_capture.sh 'Emulator boot' bash tool/start_visual_emulator.sh
+      - name: Capture Android screens
+        run: bash tool/ci_capture.sh 'Android visual walkthrough' flutter drive --no-pub --use-application-binary=build/walkthrough/app-debug.apk --driver=test_driver/visual_review.dart --target=integration_test/visual_review_test.dart -d emulator-5554
+      - name: Upload Android screenshots
+        if: ${{ !cancelled() && hashFiles('build/visual-review/*.png') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: MoneyTrack-3.4.0-android-screens
+          path: build/visual-review
+          if-no-files-found: error
+          retention-days: 14
+
+  tests-only:
+    if: ${{ contains(github.event.head_commit.message, '[checks only]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.35.6'
+          cache: true
+      - run: bash tool/ci_capture.sh 'Dependency resolution' flutter pub get --enforce-lockfile
+      - run: bash tool/ci_capture.sh 'Automated tests' bash tool/run_flutter_tests.sh
