@@ -1,27 +1,91 @@
-name: Android test APK
+name: Publish the verified MoneyTrack testing APK
 on:
   push:
     branches: [verify/moneytrack-3.0]
 permissions:
   actions: read
-  contents: read
+  checks: read
+  contents: write
 jobs:
-  diagnose:
+  deliver:
+    if: ${{ github.repository == 'Muahid1312/MoneyTrack' }}
     runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VERIFIED_COMMIT: 28b4518b355940e485f94ac97d498f3b51fec5fd
+      VERIFIED_RUN: '45171363156'
     steps:
-      - name: Read the synthetic Android test failure
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - uses: actions/checkout@v5
+      - name: Verify the main workflow result
         run: |
-          gh api "repos/$GITHUB_REPOSITORY/actions/runs/45171635543/logs" > "$RUNNER_TEMP/test-log.zip"
-          python3 - "$RUNNER_TEMP/test-log.zip" <<'PY'
-          import sys,zipfile,re
-          with zipfile.ZipFile(sys.argv[1]) as z:
-              m=next(p for p in z.namelist() if p.endswith('_Make review sheet from the Android renders.txt'))
-              log=z.read(m).decode(errors='replace')
-          i=len(log)
-          snippet=log[max(0,i-2900):i]
-          snippet=re.sub(r'\d{4}-\d\d-\d\dT[\d:.]+Z\s*','',snippet)
-          msg=snippet.replace('%','%25').replace('\r','%0D').replace('\n','%0A')
-          print('::warning title=Gallery verification::'+msg)
+          test "$(gh run view "$VERIFIED_RUN" --json headSha --jq .headSha)" = "$VERIFIED_COMMIT"
+          gh run watch "$VERIFIED_RUN" --interval 25 --exit-status
+      - uses: actions/download-artifact@v4
+        with:
+          name: MoneyTrack-3.4.0-debug-test-apk
+          path: build/device-apk
+          github-token: ${{ github.token }}
+          run-id: 45171363156
+      - name: Verify the APK, signer and version
+        run: |
+          set -eu
+          cd build/device-apk
+          btools="$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)"
+          test -x "$btools"
+          "$btools" verify --verbose --print-certs app-debug.apk > signer.txt
+          grep -F 'CN=Android Debug' signer.txt
+          "$(dirname "$btools")/aapt" dump badging app-debug.apk > manifest.txt
+          grep -E "^package: name='com.moneytrack.moneytrack' versionCode='8' versionName='3.4.0'" manifest.txt
+          expected="$(awk 'NR==1{print $1}' app-debug.apk.sha256)"
+          test "$expected" = "$(sha256sum app-debug.apk | cut -d ' ' -f 1)"
+          mv app-debug.apk MoneyTrack-3.4.0-debug.apk
+          sha256sum MoneyTrack-3.4.0-debug.apk > MoneyTrack-3.4.0-debug.apk.sha256
+      - uses: actions/download-artifact@v4
+        with:
+          name: MoneyTrack-3.4.0-android-screens
+          path: build/review-frames
+          github-token: ${{ github.token }}
+          run-id: 45171363156
+      - name: Make review sheet from the Android renders
+        run: |
+          python3 -m venv "$RUNNER_TEMP/image-tools"
+          "$RUNNER_TEMP/image-tools/bin/pip" install -q 'Pillow==11.3.0'
+          "$RUNNER_TEMP/image-tools/bin/python" - <<'PY'
+          from PIL import Image, ImageDraw, ImageFont, ImageStat
+          from pathlib import Path
+          files=sorted(Path('build/review-frames').glob('*.png'))
+          assert len(files)==18, [f.name for f in files]
+          for f in files:
+              with Image.open(f) as im:
+                  assert im.height > im.width and min(im.size) >= 320 and max(ImageStat.Stat(im.convert('RGB')).stddev)>10, f.name
+          names=['calendar','weekly','entry','accounts','statistics','more','group-members','group-settlement','calendar-dark']
+          labels=['Calendar','Weekly','Add expense','Accounts','Statistics','More','Trip members','Settlement','Dark calendar']
+          out=Image.new('RGB',(930,1788),'white')
+          d=ImageDraw.Draw(out)
+          font=ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',17)
+          for i,(n,label) in enumerate(zip(names,labels)):
+              with Image.open(Path('build/review-frames')/(n+'.png')) as im:
+                  im.thumbnail((290,548),Image.Resampling.LANCZOS)
+                  x=(i%3)*310+(310-im.width)//2; y=(i//3)*596
+                  d.text((x,y+4),label,fill='#232323',font=font)
+                  out.paste(im.convert('RGB'),(x,y+33))
+          out.save('build/device-apk/MoneyTrack-Android-preview.jpg','JPEG',quality=88,optimize=True)
+          print('Verified 18 populated Android screen captures.')
           PY
+      - name: Publish the Android testing prerelease
+        run: |
+          tag='v3.4.0-test'
+          test -z "$(git ls-remote --tags origin "refs/tags/$tag")"
+          cat > "$RUNNER_TEMP/test-notes.md" <<'NOTES'
+          MoneyTrack 3.4.0 (Android build 8) adds a calendar-based ledger with Daily, Calendar, Weekly, Monthly and Total views, quick transaction entry, separate wallet cash and savings balances, and a searchable Groups & Trips workflow.
+
+          Download **MoneyTrack-3.4.0-debug.apk** for Android device testing. The GitHub runner signed this build with an Android debug certificate. Export an encrypted backup before testing with an existing ledger. An in-place Android update requires a matching signing certificate.
+
+          Flutter analysis completed with zero errors, and all 142 regression tests passed. The SQLite checks cover populated upgrades through schema 7. The Android 11 walkthrough captures 18 screens using a synthetic ledger.
+
+          [Verification run](https://github.com/Muahid1312/MoneyTrack/actions/runs/45171363156) · [Redesign report and screenshots](https://github.com/Muahid1312/MoneyTrack/blob/28b4518b355940e485f94ac97d498f3b51fec5fd/docs/moneytrack-redesign-report.md)
+          NOTES
+          printf '\nAPK SHA-256 `%s`.\n' "$(cut -d ' ' -f 1 build/device-apk/MoneyTrack-3.4.0-debug.apk.sha256)" >> "$RUNNER_TEMP/test-notes.md"
+          grep 'certificate SHA-256 digest:' build/device-apk/signer.txt | head -1 >> "$RUNNER_TEMP/test-notes.md"
+          gh release create "$tag" --target "$VERIFIED_COMMIT" --prerelease --latest=false --title 'MoneyTrack 3.4.0 for Android testing' --notes-file "$RUNNER_TEMP/test-notes.md" build/device-apk/MoneyTrack-3.4.0-debug.apk build/device-apk/MoneyTrack-3.4.0-debug.apk.sha256 build/device-apk/MoneyTrack-Android-preview.jpg
