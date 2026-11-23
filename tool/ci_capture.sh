@@ -29,7 +29,10 @@ import pathlib, sys
 text = pathlib.Path(sys.argv[1]).read_text(errors='replace')
 lines = [line for line in text.splitlines() if 'error' in line.lower() or line.lstrip().startswith(('e:', '> '))]
 messages = text.split('\nFAILED:')[1:] if sys.argv[2] == 'Automated tests' else []
-if messages:
+if sys.argv[2] == 'Android visual walkthrough':
+    start = text.find('EXCEPTION CAUGHT')
+    messages = [text[max(0,start-250):start+3250] if start >= 0 else text[-3500:]]
+elif messages:
     messages = ['FAILED:' + '\n'.join(line[:350] for line in part.splitlines())[:3500] for part in messages]
 else:
     messages = ['\n'.join(lines)[-3500:] if lines else text[-3500:]]

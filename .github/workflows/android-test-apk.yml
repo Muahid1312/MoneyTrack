@@ -113,6 +113,7 @@ jobs:
       - name: Capture Android screens
         run: bash tool/ci_capture.sh 'Android visual walkthrough' flutter drive --no-pub --use-application-binary=build/walkthrough/app-debug.apk --driver=test_driver/visual_review.dart --target=integration_test/visual_review_test.dart -d emulator-5554
       - name: Upload Android screenshots
+        if: ${{ !cancelled() && hashFiles('build/visual-review/*.png') != '' }}
         uses: actions/upload-artifact@v4
         with:
           name: MoneyTrack-3.4.0-android-screens

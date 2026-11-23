@@ -68,6 +68,7 @@ void main() {
       ),
     );
     final pictures = <String, String>{};
+    binding.reportData = {'screens': pictures};
     Future<void> picture(String name, Finder marker) async {
       await tester.pumpAndSettle();
       for (var i = 0; i < 60 && marker.evaluate().isEmpty; i++) {
@@ -102,20 +103,35 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    Future<void> searchTool(String text) async {
-      final field = find.descendant(
-        of: find.byType(ExploreScreen),
-        matching: find.byType(TextField),
+    final directory = find
+        .descendant(
+          of: find.byType(ExploreScreen),
+          matching: find.byType(ListView),
+        )
+        .first;
+    final searchField = find.descendant(
+      of: find.byType(ExploreScreen),
+      matching: find.byType(TextField),
+    );
+    Future<void> clearSearch() async {
+      await tester.dragUntilVisible(
+        searchField,
+        directory,
+        const Offset(0, 280),
       );
-      final list = find
-          .descendant(
-            of: find.byType(ExploreScreen),
-            matching: find.byType(ListView),
-          )
-          .first;
-      await tester.dragUntilVisible(field, list, const Offset(0, 280));
-      await tester.ensureVisible(field);
-      await tester.enterText(field, text);
+      await tester.ensureVisible(searchField);
+      final clear = find.byTooltip('Clear search');
+      if (clear.evaluate().isNotEmpty) {
+        await tap(clear);
+      }
+      FocusManager.instance.primaryFocus?.unfocus();
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> openDirectoryItem(String id) async {
+      final tile = find.byKey(ValueKey('feature-$id'));
+      await tester.dragUntilVisible(tile, directory, const Offset(0, -320));
+      await tap(tile);
     }
 
     await picture('calendar', find.textContaining('Lunch with friends'));
@@ -157,14 +173,15 @@ void main() {
     }
     await back();
     await back();
-    await searchTool('monthly limit');
+    await clearSearch();
+    await tester.enterText(searchField, 'monthly limit');
     await tester.pumpAndSettle();
-    await tap(find.byKey(const ValueKey('feature-monthly')));
+    await openDirectoryItem('monthly');
     await picture('budget', find.text('Remaining'));
     await back();
-    await searchTool('appearance');
-    await tester.pumpAndSettle();
-    await tap(find.byKey(const ValueKey('feature-appearance')));
+    await tab('More');
+    await clearSearch();
+    await openDirectoryItem('appearance');
     await tap(find.text('Dark'));
     await picture('appearance-dark', find.text('Use device setting'));
     expect(c.read(settingsProvider).themeMode, ThemeMode.dark);
@@ -173,6 +190,5 @@ void main() {
     await tap(find.text('Calendar'));
     await picture('calendar-dark', find.text('Calendar'));
     expect(tester.takeException(), isNull);
-    binding.reportData = {'screens': pictures};
   });
 }

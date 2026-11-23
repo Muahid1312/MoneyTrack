@@ -4,8 +4,11 @@ import 'dart:io';
 import 'package:integration_test/integration_test_driver.dart';
 
 Future<void> main() => integrationDriver(
+  writeResponseOnFailure: true,
   responseDataCallback: (data) async {
-    final screens = Map<String, dynamic>.from(data!['screens'] as Map);
+    final screens = Map<String, dynamic>.from(
+      data?['screens'] as Map? ?? const {},
+    );
     final dir = await Directory('build/visual-review').create(recursive: true);
     for (final entry in screens.entries) {
       if (!RegExp(r'^[a-z-]+$').hasMatch(entry.key)) {
