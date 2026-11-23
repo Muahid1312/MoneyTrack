@@ -63,33 +63,73 @@ jobs:
           bash tool/ci_capture.sh 'Android walkthrough build' flutter build apk --debug --no-pub --target-platform=android-x64 --target=integration_test/visual_review_test.dart
           (cd android && ./gradlew --stop)
           df -h .
-      - name: Enable emulator acceleration
+      - name: Pass walkthrough APK to the emulator
         if: ${{ inputs.visual_review || contains(github.event.head_commit.message, '[visual review]') }}
-        run: sudo chmod a+rw /dev/kvm
-      - name: Capture Android screens
-        if: ${{ inputs.visual_review || contains(github.event.head_commit.message, '[visual review]') }}
-        uses: reactivecircus/android-emulator-runner@v2
+        uses: actions/upload-artifact@v4
         with:
-          api-level: 30
-          target: default
-          arch: x86_64
-          disable-animations: true
-          ram-size: 1536M
-          heap-size: 256M
-          disk-size: 2048M
-          cores: 2
-          emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-          script: |
-            adb shell wm size 780x1560
-            adb shell wm density 320
-            bash tool/ci_capture.sh 'Android visual walkthrough' flutter drive --no-pub --use-application-binary=build/app/outputs/flutter-apk/app-debug.apk --driver=test_driver/visual_review.dart --target=integration_test/visual_review_test.dart -d emulator-5554
+          name: android-walkthrough-input
+          path: build/app/outputs/flutter-apk/app-debug.apk
+          retention-days: 1
+
+  android-walkthrough:
+    if: ${{ inputs.visual_review || contains(github.event.head_commit.message, '[visual review]') }}
+    needs: verify-and-build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.35.6'
+          cache: true
+      - uses: actions/download-artifact@v4
+        with:
+          name: android-walkthrough-input
+          path: build/walkthrough
+      - name: Resolve driver dependencies
+        run: bash tool/ci_capture.sh 'Driver dependencies' flutter pub get --enforce-lockfile
+      - name: Prepare emulator storage and KVM
+        run: |
+          sudo chmod a+rw /dev/kvm
+          # These preinstalled toolchains are unused on this disposable Android-only runner.
+          sudo rm -rf -- /usr/share/dotnet /usr/local/.ghcup
+          echo "ANDROID_AVD_HOME=$RUNNER_TEMP/moneytrack-avd" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/moneytrack-avd"
+          df -h .
+      - name: Install Android 30 emulator image
+        run: |
+          bash tool/ci_capture.sh 'Android system image' "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platform-tools' 'emulator' 'system-images;android-30;default;x86_64'
+          echo no | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd --name moneytrack -k 'system-images;android-30;default;x86_64'
+          df -h .
+      - name: Start Android emulator
+        run: |
+          nohup "$ANDROID_HOME/emulator/emulator" -avd moneytrack -port 5554 -no-snapshot -no-window -noaudio -no-boot-anim -gpu swiftshader_indirect -camera-back none -memory 1536 -cores 2 -partition-size 1536 >"$RUNNER_TEMP/emulator.log" 2>&1 </dev/null &
+          emu_pid=$!
+          for attempt in $(seq 1 150); do
+            if [ "$(adb -s emulator-5554 shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = 1 ]; then break; fi
+            if ! kill -0 "$emu_pid" 2>/dev/null; then tail -80 "$RUNNER_TEMP/emulator.log"; exit 1; fi
+            sleep 3
+          done
+          test "$(adb -s emulator-5554 shell getprop sys.boot_completed | tr -d '\r')" = 1
+          adb -s emulator-5554 shell input keyevent 82
+          adb -s emulator-5554 shell wm size 780x1560
+          adb -s emulator-5554 shell wm density 320
+          adb -s emulator-5554 shell settings put global window_animation_scale 0
+          adb -s emulator-5554 shell settings put global transition_animation_scale 0
+          adb -s emulator-5554 shell settings put global animator_duration_scale 0
+      - name: Capture Android screens
+        run: bash tool/ci_capture.sh 'Android visual walkthrough' flutter drive --no-pub --use-application-binary=build/walkthrough/app-debug.apk --driver=test_driver/visual_review.dart --target=integration_test/visual_review_test.dart -d emulator-5554
       - name: Upload Android screenshots
-        if: ${{ always() && (inputs.visual_review || contains(github.event.head_commit.message, '[visual review]')) }}
         uses: actions/upload-artifact@v4
         with:
           name: MoneyTrack-3.4.0-android-screens
           path: build/visual-review
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 14
 
   tests-only:

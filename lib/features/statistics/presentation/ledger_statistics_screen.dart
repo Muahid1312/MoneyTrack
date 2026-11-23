@@ -55,7 +55,44 @@ class _StatsState extends ConsumerState<LedgerStatisticsScreen> {
     );
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Statistics'),
+        titleSpacing: 0,
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: [
+            IconButton(
+              tooltip: 'Previous statistics month',
+              icon: const Icon(Icons.chevron_left),
+              onPressed: () =>
+                  setState(() => month = DateTime(month.year, month.month - 1)),
+            ),
+            Flexible(
+              child: TextButton(
+                onPressed: () async {
+                  final d = await chooseLedgerDate(context, month);
+                  if (d != null && mounted)
+                    setState(() => month = DateTime(d.year, d.month));
+                },
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 3),
+                  minimumSize: const Size(44, 48),
+                  foregroundColor: Colors.white,
+                ),
+                child: Text(
+                  DateFormat('MMMM y').format(month),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).appBarTheme.titleTextStyle,
+                ),
+              ),
+            ),
+            IconButton(
+              tooltip: 'Next statistics month',
+              icon: const Icon(Icons.chevron_right),
+              onPressed: () =>
+                  setState(() => month = DateTime(month.year, month.month + 1)),
+            ),
+          ],
+        ),
         actions: [
           PopupMenuButton<AppCurrency>(
             tooltip: 'Reporting currency',
@@ -87,36 +124,16 @@ class _StatsState extends ConsumerState<LedgerStatisticsScreen> {
           : ListView(
               padding: const EdgeInsets.symmetric(horizontal: 12),
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    IconButton(
-                      tooltip: 'Previous statistics month',
-                      icon: const Icon(Icons.chevron_left),
-                      onPressed: () => setState(
-                        () => month = DateTime(month.year, month.month - 1),
-                      ),
-                    ),
-                    Flexible(child:TextButton(onPressed:()async{
-                      final d=await chooseLedgerDate(context,month);
-                      if(d!=null && mounted)setState(()=>month=DateTime(d.year,d.month));
-                    },child:Text(DateFormat('MMMM y').format(month),style:Theme.of(context).textTheme.titleMedium))),
-                    IconButton(
-                      tooltip: 'Next statistics month',
-                      icon: const Icon(Icons.chevron_right),
-                      onPressed: () => setState(
-                        () => month = DateTime(month.year, month.month + 1),
-                      ),
-                    ),
-                  ],
+                LedgerModes<bool>(
+                  options: const {true: 'Income', false: 'Expenses'},
+                  selected: income,
+                  onChange: (v) => setState(() => income = v),
                 ),
                 LedgerTotals(
                   income: totals.income,
                   expense: totals.expense,
                   currency: currency,
                 ),
-                const Divider(height: 1),
-                LedgerModes<bool>(options:const {false:'Expenses',true:'Income'},selected:income,onChange:(v)=>setState(()=>income=v)),
                 if (groups.isEmpty)
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 28),
@@ -137,7 +154,13 @@ class _StatsState extends ConsumerState<LedgerStatisticsScreen> {
                       onSelect: (i) {
                         if (i != null) drill(i);
                       },
-                      center:FittedBox(fit:BoxFit.scaleDown,child:Text(income?'Income':'Spent',style:Theme.of(context).textTheme.labelMedium)),
+                      center: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          income ? 'Income' : 'Spent',
+                          style: Theme.of(context).textTheme.labelMedium,
+                        ),
+                      ),
                     ),
                   ),
                   for (var i = 0; i < groups.length; i++)

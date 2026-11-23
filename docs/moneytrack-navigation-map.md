@@ -2,7 +2,7 @@
 
 |Primary tab|Controls|Where they lead|
 |---|---|---|
-|Transactions|Month arrows, tap-to-jump month title, currency menu, search, Daily, Calendar and +|A tapped calendar day shows its records. Daily lists the month in reverse chronological order. Search spans all dates and retains date, wallet, type and category filters. Tap an entry for receipts, editing, deletion or undo.|
+|Transactions|Month arrows, tap-to-jump month title, currency menu, search, Daily, Calendar, Weekly, Monthly, Total and +|A tapped calendar day shows its records. Daily lists the month in reverse chronological order. Weekly opens the underlying entries for a week. Monthly shows the year. Total compares the selected month with the previous one. Search spans all dates and retains date, wallet, type and category filters. Tap an entry for receipts, editing, deletion or undo.|
 |Statistics|Month arrows, reporting currency, Expenses and Income|Tap a chart slice or category row for its underlying entries. Trends and comparisons opens the existing period filters, monthly overview, historical wallet cash, projects and reports.|
 |Accounts|Balances grouped by currency, transfer action and New wallet|Open a wallet to inspect its transactions, transfers, debt postings and reservations or edit its definition.|
 |More|Find a feature, ordered pins, recent tools and grouped rows|Search aliases such as “borrow”, “save money”, “business”, “backup” and “monthly limit”. Matching wallets and transactions appear below navigation results.|

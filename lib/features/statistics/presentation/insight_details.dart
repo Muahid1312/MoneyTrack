@@ -57,7 +57,7 @@ class PeriodEntriesScreen extends ConsumerWidget {
               if (i == 0)
                 return ListTile(
                   title: Text('${currency.code} · ${Dates.spanLabel(span)}'),
-                  subtitle: Text('${records.length} entries'),
+                  subtitle: Text(records.length == 1 ? '1 entry' : '${records.length} entries'),
                 );
               final tx = records[i - 1];
               return TransactionTile(
