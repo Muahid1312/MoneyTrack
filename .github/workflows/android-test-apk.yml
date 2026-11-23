@@ -1,48 +1,27 @@
-name: Android visual review
+name: Android test APK
 on:
   push:
     branches: [verify/moneytrack-3.0]
 permissions:
   actions: read
-  contents: write
+  contents: read
 jobs:
-  gallery:
-    if: ${{ !contains(github.event.head_commit.message, '[gallery image]') }}
+  diagnose:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/download-artifact@v4
-        with:
-          name: MoneyTrack-3.4.0-android-screens
-          path: build/review-frames
-          github-token: ${{ github.token }}
-          run-id: 45169965437
-      - name: Make review sheet from the Android renders
+      - name: Read the synthetic Android test failure
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          python3 - <<'PY'
-          from PIL import Image, ImageDraw, ImageFont, ImageStat
-          from pathlib import Path
-          files=sorted(Path('build/review-frames').glob('*.png'))
-          assert len(files)==18, [f.name for f in files]
-          for f in files:
-              with Image.open(f) as im:
-                  assert im.height > im.width and min(im.size) >= 320 and max(ImageStat.Stat(im.convert('RGB')).stddev)>10, f.name
-          names=['calendar','weekly','entry','accounts','statistics','more','group-members','group-settlement','calendar-dark']
-          labels=['Calendar','Weekly','Add expense','Accounts','Statistics','More','Trip members','Settlement','Dark calendar']
-          out=Image.new('RGB',(930,1788),'white')
-          d=ImageDraw.Draw(out)
-          font=ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',17)
-          for i,(n,label) in enumerate(zip(names,labels)):
-              with Image.open(Path('build/review-frames')/(n+'.png')) as im:
-                  im.thumbnail((290,548),Image.Resampling.LANCZOS)
-                  x=(i%3)*310+(310-im.width)//2; y=(i//3)*596
-                  d.text((x,y+4),label,fill='#232323',font=font)
-                  out.paste(im.convert('RGB'),(x,y+33))
-          out.save('docs/screenshots/android-emulator-gallery.jpg','JPEG',quality=88,optimize=True)
-          print('Verified 18 populated Android screen captures.')
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/45171635543/logs" > "$RUNNER_TEMP/test-log.zip"
+          python3 - "$RUNNER_TEMP/test-log.zip" <<'PY'
+          import sys,zipfile,re
+          with zipfile.ZipFile(sys.argv[1]) as z:
+              m=next(p for p in z.namelist() if p.endswith('_Make review sheet from the Android renders.txt'))
+              log=z.read(m).decode(errors='replace')
+          i=len(log)
+          snippet=log[max(0,i-2900):i]
+          snippet=re.sub(r'\d{4}-\d\d-\d\dT[\d:.]+Z\s*','',snippet)
+          msg=snippet.replace('%','%25').replace('\r','%0D').replace('\n','%0A')
+          print('::warning title=Gallery verification::'+msg)
           PY
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -- docs/screenshots/android-emulator-gallery.jpg
-          git commit -m 'Capture the verified Android screens for review [gallery image]'
-          git push origin HEAD:refs/heads/verify/moneytrack-3.0
