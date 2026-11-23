@@ -103,25 +103,11 @@ jobs:
           df -h .
       - name: Install Android 30 emulator image
         run: |
-          bash tool/ci_capture.sh 'Android system image' "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platform-tools' 'emulator' 'system-images;android-30;default;x86_64'
-          echo no | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd --name moneytrack -k 'system-images;android-30;default;x86_64'
+          bash tool/ci_capture.sh 'Android system image' "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platform-tools' 'emulator' 'system-images;android-30;aosp_atd;x86_64'
+          echo no | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd --name moneytrack -k 'system-images;android-30;aosp_atd;x86_64'
           df -h .
       - name: Start Android emulator
-        run: |
-          nohup "$ANDROID_HOME/emulator/emulator" -avd moneytrack -port 5554 -no-snapshot -no-window -noaudio -no-boot-anim -gpu swiftshader_indirect -camera-back none -memory 1536 -cores 2 -partition-size 1536 >"$RUNNER_TEMP/emulator.log" 2>&1 </dev/null &
-          emu_pid=$!
-          for attempt in $(seq 1 150); do
-            if [ "$(adb -s emulator-5554 shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = 1 ]; then break; fi
-            if ! kill -0 "$emu_pid" 2>/dev/null; then tail -80 "$RUNNER_TEMP/emulator.log"; exit 1; fi
-            sleep 3
-          done
-          test "$(adb -s emulator-5554 shell getprop sys.boot_completed | tr -d '\r')" = 1
-          adb -s emulator-5554 shell input keyevent 82
-          adb -s emulator-5554 shell wm size 780x1560
-          adb -s emulator-5554 shell wm density 320
-          adb -s emulator-5554 shell settings put global window_animation_scale 0
-          adb -s emulator-5554 shell settings put global transition_animation_scale 0
-          adb -s emulator-5554 shell settings put global animator_duration_scale 0
+        run: bash tool/ci_capture.sh 'Emulator boot' bash tool/start_visual_emulator.sh
       - name: Capture Android screens
         run: bash tool/ci_capture.sh 'Android visual walkthrough' flutter drive --no-pub --use-application-binary=build/walkthrough/app-debug.apk --driver=test_driver/visual_review.dart --target=integration_test/visual_review_test.dart -d emulator-5554
       - name: Upload Android screenshots
