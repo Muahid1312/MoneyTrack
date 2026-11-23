@@ -170,6 +170,12 @@ void main() {
       await tester.tap(find.widgetWithText(TextButton, 'Income'));
       await tester.pumpAndSettle();
       await capture('entry-dark-income');
+      await tester.tap(find.text('Cash · AFN').first);
+      await tester.pumpAndSettle();
+      expect(find.text('Choose account'), findsOneWidget);
+      await capture('entry-accounts-dark');
+      await tester.tap(find.byTooltip('Close accounts'));
+      await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(TextButton, 'Expense'));
       await tester.pumpAndSettle();
       tester.platformDispatcher.clearPlatformBrightnessTestValue();

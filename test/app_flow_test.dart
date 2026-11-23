@@ -107,7 +107,7 @@ void main() {
       MoneyFeature.wallets: 'Accounts',
       MoneyFeature.transfer: 'Transfer money',
       MoneyFeature.categories: 'Categories',
-      MoneyFeature.add: 'New transaction',
+      MoneyFeature.add: 'Add expense',
       MoneyFeature.budget: 'Wallet budgets',
       MoneyFeature.monthly: 'Monthly spending limit',
       MoneyFeature.savings: 'Savings goals',
@@ -170,7 +170,7 @@ void main() {
     final container = await _boot(tester);
     await tester.tap(find.byTooltip('Add transaction'));
     await tester.pumpAndSettle();
-    expect(find.text('New transaction'), findsOneWidget);
+    expect(find.text('Add expense'), findsOneWidget);
 
     // Validation: empty amount
     await tester.tap(find.text('Save expense'));

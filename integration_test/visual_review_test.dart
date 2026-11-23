@@ -96,7 +96,7 @@ void main() {
     Future<void> tab(String name) =>
         tap(find.widgetWithText(NavigationDestination, name));
     Future<void> back() async {
-      await tester.pageBack();
+      await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
     }
 
@@ -104,7 +104,7 @@ void main() {
     await tap(find.text('Daily'));
     await picture('daily', find.textContaining('Lunch with friends'));
     await tap(find.byTooltip('Add transaction'));
-    await picture('entry', find.text('New transaction'));
+    await picture('entry', find.text('Add expense'));
     await back();
     await tab('Statistics');
     await picture('statistics', find.text('Food & Dining'));
