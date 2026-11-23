@@ -91,6 +91,7 @@ class _TransactionEditorScreenState
   bool _saving = false;
 
   bool _addReceipt = false;
+  bool _showAccounts = false;
   int? _savedId;
   Map<String, int> _usage = {};
 
@@ -175,6 +176,7 @@ class _TransactionEditorScreenState
     if (t == _type) return;
     setState(() {
       _type = t;
+      _showAccounts = false;
       _readUsage();
       if (t.isExpense && _project.clientReceipt) {
         _project = ProjectAssignment(
@@ -187,6 +189,28 @@ class _TransactionEditorScreenState
         _categoryId = null;
       }
       _error = null;
+    });
+  }
+
+  String walletLabel(Wallet w) =>
+      '${w.name} · ${w.currency.code}${w.archived ? " · Archived" : ""}';
+
+  void selectAccount(Wallet w) {
+    setState(() {
+      if (w.currency != _currency) {
+        _amount = AmountInput('', w.currency);
+        _amountText.clear();
+        _project = ProjectAssignment(
+          projectId: _project.projectId,
+          categoryId: _project.categoryId,
+          clientReceipt: _project.clientReceipt,
+          paymentReference: _project.paymentReference,
+        );
+      }
+      _walletId = w.id!;
+      _currency = w.currency;
+      _showAccounts = false;
+      _readUsage();
     });
   }
 
@@ -378,14 +402,17 @@ class _TransactionEditorScreenState
   }
 
   List<TransactionCategory> get orderedCategories {
-    final cats=[...Categories.forType(_type)];
-    final rank={for(var i=0;i<cats.length;i++)cats[i].id:i};
-    cats.sort((a,b){final delta=(_usage[b.id]??0).compareTo(_usage[a.id]??0);return delta!=0?delta:rank[a.id]!.compareTo(rank[b.id]!);});
+    final cats = [...Categories.forType(_type)];
+    final rank = {for (var i = 0; i < cats.length; i++) cats[i].id: i};
+    cats.sort((a, b) {
+      final delta = (_usage[b.id] ?? 0).compareTo(_usage[a.id] ?? 0);
+      return delta != 0 ? delta : rank[a.id]!.compareTo(rank[b.id]!);
+    });
     return cats;
   }
 
   Future<void> _chooseCategory() async {
-    final cats=orderedCategories;
+    final cats = orderedCategories;
     final picked = await showModalBottomSheet<String>(
       context: context,
       useSafeArea: true,
@@ -525,9 +552,26 @@ class _TransactionEditorScreenState
             .toList() ??
         const <Wallet>[];
     final scheme = Theme.of(context).colorScheme;
+    final palette = context.palette;
+    final selectedWallet = wallets.where((w) => w.id == _walletId).firstOrNull;
+    final fieldButton = TextButton.styleFrom(
+      alignment: AlignmentDirectional.centerStart,
+      padding: EdgeInsets.zero,
+      foregroundColor: palette.textPrimary,
+      textStyle: Theme.of(context).textTheme.bodyMedium,
+    );
     return Scaffold(
+      backgroundColor: palette.surface,
       appBar: AppBar(
-        title: Text(_isEdit ? 'Edit transaction' : 'New transaction'),
+        backgroundColor: palette.surface,
+        foregroundColor: palette.textPrimary,
+        titleTextStyle: Theme.of(
+          context,
+        ).textTheme.titleMedium?.copyWith(color: palette.textPrimary),
+        leading: const BackButton(),
+        title: Text(
+          _isEdit ? 'Edit transaction' : 'Add ${_type.label.toLowerCase()}',
+        ),
         actions: [
           if (!_isEdit)
             IconButton(
@@ -578,7 +622,11 @@ class _TransactionEditorScreenState
                             padding: const EdgeInsets.symmetric(horizontal: 2),
                             child: TextButton(
                               style: TextButton.styleFrom(
-                                minimumSize: const Size(0, 48),
+                                minimumSize: const Size(0, 34),
+                                tapTargetSize: MaterialTapTargetSize.padded,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 2,
                                 ),
@@ -618,10 +666,7 @@ class _TransactionEditorScreenState
                   _EntryRow(
                     'Date',
                     TextButton(
-                      style: TextButton.styleFrom(
-                        alignment: AlignmentDirectional.centerStart,
-                        padding: EdgeInsets.zero,
-                      ),
+                      style: fieldButton,
                       onPressed: _saving ? null : _pickDate,
                       child: Text(DateFormat.yMMMd().add_jm().format(_date)),
                     ),
@@ -635,56 +680,40 @@ class _TransactionEditorScreenState
                           )
                         : wallets.isEmpty
                         ? Text(_currency.code)
-                        : DropdownButtonHideUnderline(
-                            child: DropdownButton<int>(
-                              value: wallets.any((w) => w.id == _walletId)
-                                  ? _walletId
-                                  : null,
-                              isExpanded: true,
-                              items: [
-                                for (final w in wallets)
-                                  DropdownMenuItem(
-                                    value: w.id,
-                                    child: Text(
-                                      '${w.name} · ${w.currency.code}${w.archived ? " · Archived" : ""}',
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
+                        : TextButton(
+                            style: fieldButton,
+                            onPressed: _saving
+                                ? null
+                                : () {
+                                    FocusManager.instance.primaryFocus
+                                        ?.unfocus();
+                                    setState(
+                                      () => _showAccounts = !_showAccounts,
+                                    );
+                                  },
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    selectedWallet == null
+                                        ? 'Choose account'
+                                        : walletLabel(selectedWallet),
                                   ),
+                                ),
+                                Icon(
+                                  _showAccounts
+                                      ? Icons.expand_less
+                                      : Icons.expand_more,
+                                  size: 18,
+                                ),
                               ],
-                              onChanged: _saving
-                                  ? null
-                                  : (id) {
-                                      final w = wallets.firstWhere(
-                                        (w) => w.id == id,
-                                      );
-                                      setState(() {
-                                        if (w.currency != _currency) {
-                                          _amount = AmountInput('', w.currency);
-                                          _amountText.clear();
-                                          _project = ProjectAssignment(
-                                            projectId: _project.projectId,
-                                            categoryId: _project.categoryId,
-                                            clientReceipt:
-                                                _project.clientReceipt,
-                                            paymentReference:
-                                                _project.paymentReference,
-                                          );
-                                        }
-                                        _walletId = id!;
-                                        _currency = w.currency;
-                                        _readUsage();
-                                      });
-                                    },
                             ),
                           ),
                   ),
                   _EntryRow(
                     'Category',
                     TextButton(
-                      style: TextButton.styleFrom(
-                        alignment: AlignmentDirectional.centerStart,
-                        padding: EdgeInsets.zero,
-                      ),
+                      style: fieldButton,
                       onPressed: _saving ? null : _chooseCategory,
                       child: Text(
                         _categoryId == null
@@ -704,7 +733,9 @@ class _TransactionEditorScreenState
                       ),
                       decoration: InputDecoration(
                         hintText: '0',
-                        filled:false,contentPadding:EdgeInsets.zero,enabledBorder:InputBorder.none,
+                        filled: false,
+                        contentPadding: EdgeInsets.zero,
+                        enabledBorder: InputBorder.none,
                         suffixText: _currency.code,
                       ),
                       onChanged: (v) {
@@ -724,18 +755,96 @@ class _TransactionEditorScreenState
                       maxLength: 240,
                       decoration: const InputDecoration(
                         hintText: 'Optional',
-                        filled:false,contentPadding:EdgeInsets.zero,enabledBorder:InputBorder.none,
+                        filled: false,
+                        contentPadding: EdgeInsets.zero,
+                        enabledBorder: InputBorder.none,
                         counterText: '',
                       ),
                       onChanged: (v) => _note = v.trim(),
                     ),
                   ),
-                  if(!_isEdit && _categoryId==null)Padding(
-                    padding:const EdgeInsets.only(top:6),
-                    child:Wrap(spacing:6,children:[for(final cat in orderedCategories.take(3))
-                      ActionChip(key:ValueKey('quick-category-${cat.id}'),avatar:Icon(cat.icon,size:16),label:Text(cat.name),
-                        onPressed:_saving?null:()=>setState((){_categoryId=cat.id;_error=null;}))
-                    ])),
+                  if (_showAccounts) ...[
+                    ColoredBox(
+                      color: palette.surfaceMuted,
+                      child: Row(
+                        children: [
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'Choose account',
+                              style: Theme.of(context).textTheme.labelLarge,
+                            ),
+                          ),
+                          IconButton(
+                            tooltip: 'Close accounts',
+                            icon: const Icon(Icons.close, size: 18),
+                            onPressed: () =>
+                                setState(() => _showAccounts = false),
+                          ),
+                        ],
+                      ),
+                    ),
+                    LayoutBuilder(
+                      builder: (context, box) {
+                        final columns =
+                            box.maxWidth >= 340 &&
+                                MediaQuery.textScalerOf(context).scale(14) < 19
+                            ? 3
+                            : 2;
+                        return Wrap(
+                          children: [
+                            for (final wallet in wallets)
+                              SizedBox(
+                                width: box.maxWidth / columns,
+                                child: OutlinedButton(
+                                  style: OutlinedButton.styleFrom(
+                                    minimumSize: const Size(0, 48),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 4,
+                                      vertical: 8,
+                                    ),
+                                    shape: const RoundedRectangleBorder(),
+                                    backgroundColor: wallet.id == _walletId
+                                        ? palette.surfaceMuted
+                                        : palette.surface,
+                                    foregroundColor: palette.textPrimary,
+                                    side: BorderSide(color: palette.border),
+                                  ),
+                                  onPressed: _saving
+                                      ? null
+                                      : () => selectAccount(wallet),
+                                  child: Text(
+                                    walletLabel(wallet),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        );
+                      },
+                    ),
+                  ],
+                  if (!_showAccounts && !_isEdit && _categoryId == null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Wrap(
+                        spacing: 6,
+                        children: [
+                          for (final cat in orderedCategories.take(3))
+                            ActionChip(
+                              key: ValueKey('quick-category-${cat.id}'),
+                              avatar: Icon(cat.icon, size: 16),
+                              label: Text(cat.name),
+                              onPressed: _saving
+                                  ? null
+                                  : () => setState(() {
+                                      _categoryId = cat.id;
+                                      _error = null;
+                                    }),
+                            ),
+                        ],
+                      ),
+                    ),
                   ExpansionTile(
                     title: const Text('More details'),
                     initiallyExpanded: _project.projectId != null,
@@ -829,7 +938,12 @@ class _EntryRow extends StatelessWidget {
           children: [
             SizedBox(
               width: 82,
-              child: Text(name, style: Theme.of(context).textTheme.labelLarge),
+              child: Text(
+                name,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: context.palette.textSecondary,
+                ),
+              ),
             ),
             Expanded(
               child: Align(
@@ -840,7 +954,7 @@ class _EntryRow extends StatelessWidget {
           ],
         ),
       ),
-      const Divider(height: 1),
+      const Divider(height: 1, indent: 82),
     ],
   );
 }

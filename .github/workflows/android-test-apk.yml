@@ -57,6 +57,12 @@ jobs:
       - name: Run automated tests
         run: bash tool/ci_capture.sh 'Automated tests' bash tool/run_flutter_tests.sh
 
+      - name: Prepare Android walkthrough
+        if: ${{ inputs.visual_review || contains(github.event.head_commit.message, '[visual review]') }}
+        run: |
+          bash tool/ci_capture.sh 'Android walkthrough build' flutter build apk --debug --no-pub --target-platform=android-x64 --target=integration_test/visual_review_test.dart
+          (cd android && ./gradlew --stop)
+          df -h .
       - name: Enable emulator acceleration
         if: ${{ inputs.visual_review || contains(github.event.head_commit.message, '[visual review]') }}
         run: sudo chmod a+rw /dev/kvm
@@ -68,11 +74,15 @@ jobs:
           target: default
           arch: x86_64
           disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          ram-size: 1536M
+          heap-size: 256M
+          disk-size: 2048M
+          cores: 2
+          emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: |
             adb shell wm size 780x1560
             adb shell wm density 320
-            bash tool/ci_capture.sh 'Android visual walkthrough' flutter drive --no-pub --driver=test_driver/visual_review.dart --target=integration_test/visual_review_test.dart -d emulator-5554
+            bash tool/ci_capture.sh 'Android visual walkthrough' flutter drive --no-pub --use-application-binary=build/app/outputs/flutter-apk/app-debug.apk --driver=test_driver/visual_review.dart --target=integration_test/visual_review_test.dart -d emulator-5554
       - name: Upload Android screenshots
         if: ${{ always() && (inputs.visual_review || contains(github.event.head_commit.message, '[visual review]')) }}
         uses: actions/upload-artifact@v4
