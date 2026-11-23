@@ -1,8 +1,4 @@
-import 'dart:io';
-import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:moneytrack/app/app_shell.dart';
@@ -19,6 +15,7 @@ import 'package:moneytrack/features/wallets/application/wallet_providers.dart';
 import 'package:moneytrack/features/transactions/application/ledger_month.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'support/fakes.dart';
+import 'support/screen_capture.dart';
 
 final clock = DateTime(2024, 2, 29, 11);
 const usd = AppCurrency.usd, afn = AppCurrency.afn;
@@ -72,7 +69,6 @@ const wallets = [
   Wallet(id: 1, name: 'Cash', type: WalletType.cash, currency: afn),
   Wallet(id: 2, name: 'Bank', type: WalletType.bank, currency: usd),
 ];
-const output = String.fromEnvironment('LEDGER_SCREENSHOTS');
 void main() {
   test(
     'calendar boundaries and transfer legs preserve month and original currency',
@@ -106,7 +102,7 @@ void main() {
   testWidgets(
     'calendar, daily records, entry and statistics use the selected dates and accounts',
     (tester) async {
-      SharedPreferences.setMockInitialValues({'currency': 'AFN'});
+      SharedPreferences.setMockInitialValues({'currency':'AFN','monthly_budget_minor':220000});
       final prefs = await SharedPreferences.getInstance();
       final repo = InMemoryTransactionRepository(entries);
       final c = ProviderContainer(
@@ -118,7 +114,7 @@ void main() {
           clockProvider.overrideWithValue(() => clock),
           walletsProvider.overrideWith(
             (_) async =>
-                WalletSnapshot(wallets, {1: 2275000, 2: 45000}, [transfer]),
+                WalletSnapshot(wallets, {1: 2275000, 2: 45000}, [transfer],reserved:const {1:500000}),
           ),
         ],
       );
@@ -131,40 +127,8 @@ void main() {
         tester.view.resetPhysicalSize();
         tester.view.resetDevicePixelRatio();
       });
-      if (output.isNotEmpty) {
-        await tester.runAsync(() async {
-          final font = FontLoader('Plus Jakarta Sans');
-          for (final n in ['Regular', 'Medium', 'SemiBold', 'Bold']) {
-            font.addFont(
-              rootBundle.load('assets/google_fonts/PlusJakartaSans-$n.ttf'),
-            );
-          }
-          await font.load();
-          await (FontLoader('MaterialIcons')
-                ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf')))
-              .load();
-          await (FontLoader('Noto Arabic')..addFont(
-                rootBundle.load(
-                  'assets/report_fonts/NotoSansArabic-Regular.ttf',
-                ),
-              ))
-              .load();
-        });
-      }
-      Future<void> capture(String name) async {
-        if (output.isEmpty) return;
-        final boundary =
-            captureKey.currentContext!.findRenderObject()!
-                as RenderRepaintBoundary;
-        await tester.runAsync(() async {
-          final image = await boundary.toImage(pixelRatio: 1);
-          final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
-          await File(
-            '$output/$name.png',
-          ).writeAsBytes(bytes!.buffer.asUint8List());
-          image.dispose();
-        });
-      }
+      await loadCaptureFonts(tester);
+      Future<void> capture(String name)=>captureView(tester,captureKey,name);
 
       await tester.pumpWidget(
         UncontrolledProviderScope(
@@ -185,6 +149,8 @@ void main() {
       expect(find.textContaining('Tea and bread'), findsOneWidget);
       expect(find.textContaining('Previous evening'), findsNothing);
       await capture('calendar');
+      await tester.tap(find.text('February 2024'));await tester.pumpAndSettle();
+      expect(find.byType(DatePickerDialog),findsOneWidget);await tester.tap(find.text('Cancel'));await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(InkWell, 'Daily').first);
       await tester.pumpAndSettle();
       await capture('daily');
@@ -233,7 +199,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       await capture('statistics');
-      await tester.tap(find.widgetWithText(ChoiceChip, 'Income'));
+      await tester.tap(find.widgetWithText(InkWell,'Income').hitTestable().last);
       await tester.pumpAndSettle();
       final donut = find.byType(ExpenseDonut);
       await tester.ensureVisible(donut);
@@ -251,6 +217,19 @@ void main() {
       await tester.tap(find.widgetWithText(NavigationDestination, 'Accounts'));
       await tester.pumpAndSettle();
       await capture('accounts');
+      expect(find.text('17,750.00 ؋'),findsWidgets);
+      await tester.tap(find.byTooltip('Transfer money'));await tester.pumpAndSettle();await capture('transfer');
+      await tester.pageBack();await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(NavigationDestination,'More'));await tester.pumpAndSettle();
+      expect(find.text('Group Money'),findsOneWidget);
+      expect(find.byKey(const ValueKey('feature-groups')).hitTestable(),findsOneWidget);
+      await capture('more');
+      await tester.enterText(find.byType(TextField),'monthly limit');await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('feature-monthly')));await tester.pumpAndSettle();await capture('budget');
+      await tester.pageBack();await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField),'appearance');await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('feature-appearance')));await tester.pumpAndSettle();await capture('appearance');
+
       expect(tester.takeException(), isNull);
     },
   );

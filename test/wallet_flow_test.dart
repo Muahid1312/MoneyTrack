@@ -34,8 +34,9 @@ void main() {
     await tester.pumpWidget(UncontrolledProviderScope(container: container,
       child: const MaterialApp(home: WalletsScreen())));
     await tester.pumpAndSettle();
-    expect(find.text('Balances by currency'), findsOneWidget);
-    expect(find.text('Original amounts · no exchange rates applied'), findsOneWidget);
+    expect(find.text('Available'), findsWidgets);
+    expect(find.text('Afghan Afghani · AFN'), findsOneWidget);
+    expect(find.text('US Dollar · USD'), findsOneWidget);
     expect(find.text('Afghan savings'), findsOneWidget);
     expect(find.text('7,000.00 ؋'), findsWidgets);
     await tester.tap(find.text('New wallet'));

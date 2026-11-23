@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/widgets/ledger_components.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
@@ -7,9 +8,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/money.dart';
-import '../../../core/widgets/animated_money.dart';
 import '../../../core/widgets/app_card.dart';
-import '../../../core/widgets/buttons.dart';
 import '../../../core/widgets/category_avatar.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/progress.dart';
@@ -34,32 +33,17 @@ class BudgetScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        leading: Padding(
-          padding: const EdgeInsets.only(left: 12),
-          child: Center(
-            child: AppIconButton(
-              icon: Icons.arrow_back_rounded,
-              tooltip: 'Back',
-              size: 40,
-              onPressed: () => Navigator.of(context).maybePop(),
-            ),
-          ),
-        ),
-        leadingWidth: 64,
+        titleSpacing: 0,
         title: const Text('Monthly spending limit'),
         actions: [
           IconButton(tooltip: 'Wallet budgets', icon: const Icon(Icons.account_balance_wallet_outlined),
             onPressed: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) =>
               Scaffold(appBar: AppBar(title: const Text('Wallet budgets')), body: ListView(children: const [WalletBudgetPanel()]))))),
           if (status.hasBudget)
-            Padding(
-              padding: const EdgeInsets.only(right: 12),
-              child: AppIconButton(
-                icon: Icons.edit_outlined,
-                tooltip: 'Edit budget',
-                size: 40,
-                onPressed: () => showBudgetEditor(context),
-              ),
+            IconButton(
+              icon: const Icon(Icons.edit_outlined),
+              tooltip: 'Edit budget',
+              onPressed: () => showBudgetEditor(context),
             ),
         ],
       ),
@@ -82,15 +66,13 @@ class BudgetScreen extends ConsumerWidget {
                   Text(DateFormat('MMMM y').format(status.month.start),
                       style: t.labelLarge?.copyWith(color: p.textSecondary)),
                   const SizedBox(height: AppSpacing.lg),
-                  _RingCard(status: status, currency: currency),
+                  _BudgetSummary(status: status, currency: currency),
                   if (status.level == BudgetLevel.approaching ||
                       status.level == BudgetLevel.exceeded) ...[
                     const SizedBox(height: AppSpacing.lg),
                     BudgetWarningBanner(status: status, currency: currency),
                   ],
                   const SizedBox(height: AppSpacing.lg),
-                  _StatsGrid(status: status, currency: currency),
-                  const SizedBox(height: AppSpacing.xxl),
                   SectionHeader(
                     title: 'Spending by category',
                     subtitle: 'Share of this month\'s budget',
@@ -172,116 +154,17 @@ class BudgetScreen extends ConsumerWidget {
   }
 }
 
-class _RingCard extends StatelessWidget {
-  const _RingCard({required this.status, required this.currency});
-  final BudgetStatus status;
-  final AppCurrency currency;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = context.palette;
-    final t = Theme.of(context).textTheme;
-    final color = budgetColor(context, status.ratio);
-    final over = status.remainingMinor < 0;
-    return AppCard(
-      padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 20),
-      child: Column(
-        children: [
-          ProgressRing(
-            value: status.ratio,
-            color: color,
-            size: 196,
-            stroke: 16,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(over ? 'Over by' : 'Remaining',
-                    style: t.labelMedium?.copyWith(color: p.textSecondary)),
-                const SizedBox(height: 4),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 28),
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: AnimatedMoney(
-                      minor: over ? status.overspentMinor : status.remainingMinor,
-                      currency: currency,
-                      style: AppTypography.amount(26,
-                          weight: FontWeight.w800, color: over ? p.expense : p.textPrimary),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text('${(status.ratio * 100).toStringAsFixed(0)}% used',
-                    style: t.labelMedium?.copyWith(color: color)),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
-          BudgetLevelChip(level: status.level),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatsGrid extends StatelessWidget {
-  const _StatsGrid({required this.status, required this.currency});
-  final BudgetStatus status;
-  final AppCurrency currency;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = context.palette;
-    final projectedOver = status.projectedMinor > status.budgetMinor;
-    final items = [
-      ('Budget', Money.format(status.budgetMinor, currency), Icons.flag_outlined, p.textPrimary),
-      ('Spent', Money.format(status.spentMinor, currency), Icons.north_east_rounded, p.expense),
-      (
-        'Daily allowance',
-        Money.format(status.dailyAllowanceMinor, currency),
-        Icons.today_outlined,
-        context.isDark ? AppColors.emeraldBright : AppColors.emeraldDeep
-      ),
-      (
-        'Projected',
-        Money.format(status.projectedMinor, currency),
-        Icons.insights_outlined,
-        projectedOver ? p.warning : p.textPrimary
-      ),
-    ];
-    return LayoutBuilder(builder: (context, c) {
-      final w = (c.maxWidth - 12) / 2;
-      return Wrap(
-        spacing: 12,
-        runSpacing: 12,
-        children: [
-          for (final (label, value, icon, color) in items)
-            SizedBox(
-              width: w,
-              child: AppCard(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(icon, size: 18, color: p.textSecondary),
-                    const SizedBox(height: 10),
-                    Text(label,
-                        style: Theme.of(context)
-                            .textTheme
-                            .labelMedium
-                            ?.copyWith(color: p.textSecondary)),
-                    const SizedBox(height: 4),
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: Text(value, style: AppTypography.amount(17, color: color)),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-        ],
-      );
-    });
+class _BudgetSummary extends StatelessWidget {
+  const _BudgetSummary({required this.status,required this.currency});
+  final BudgetStatus status;final AppCurrency currency;
+  @override Widget build(BuildContext context){
+    final over=status.remainingMinor<0;
+    String money(int minor)=>Money.format(minor,currency);
+    return Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
+      FinancialSummary([(label:'Limit',value:money(status.budgetMinor),color:null),(label:'Spent',value:money(status.spentMinor),color:context.palette.expense),(label:over?'Over by':'Remaining',value:money(over?status.overspentMinor:status.remainingMinor),color:over?context.palette.expense:null)]),
+      const SizedBox(height:12),AnimatedProgressBar(value:status.ratio.clamp(0.0,1.0),color:budgetColor(context,status.ratio),height:5),
+      Padding(padding:const EdgeInsets.symmetric(vertical:6),child:Wrap(spacing:12,crossAxisAlignment:WrapCrossAlignment.center,children:[Text('${(status.ratio*100).toStringAsFixed(0)}% used'),BudgetLevelChip(level:status.level)])),
+      FinancialSummary([(label:'Daily allowance',value:money(status.dailyAllowanceMinor),color:null),(label:'Projected',value:money(status.projectedMinor),color:null)])
+    ]);
   }
 }

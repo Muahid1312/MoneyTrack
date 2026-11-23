@@ -1,9 +1,11 @@
 import 'dart:typed_data';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide DataRow;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../../core/utils/date_utils.dart';
 import '../../../core/utils/money.dart';
+import '../../../core/widgets/ledger_components.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../../data/storage/access_guard.dart';
 import '../../reports/application/report_exporter.dart';
 import '../application/group_providers.dart';
@@ -58,19 +60,27 @@ class GroupsScreen extends ConsumerWidget {
                 itemCount: rows.length,
                 itemBuilder: (context, i) {
                   final r = rows[i];
-                  return ListTile(
-                    leading: const Icon(Icons.groups_outlined),
-                    title: Text(r['name'] as String),
-                    subtitle: Text(
-                      '${Dates.shortDate(DateTime.fromMillisecondsSinceEpoch(r['project_date'] as int))} · ${r['currency']}',
-                    ),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () => open(r['id'] as int),
-                  );
+                  return _FundRow(row:r,open:()=>open(r['id'] as int));
+
                 },
               ),
       ),
     );
+  }
+}
+
+class _FundRow extends ConsumerWidget {
+  const _FundRow({required this.row,required this.open});
+  final DataRow row;final VoidCallback open;
+  @override Widget build(BuildContext context,WidgetRef ref){
+    final id=row['id'] as int,fund=ref.watch(groupProvider(id));
+    return Material(color:context.palette.surface,child:InkWell(onTap:open,child:Padding(padding:const EdgeInsets.fromLTRB(14,12,14,8),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+      Row(children:[const LedgerGlyph(Icons.groups_outlined),const SizedBox(width:10),Expanded(child:Text(row['name'] as String,style:Theme.of(context).textTheme.titleMedium)),const Icon(Icons.chevron_right,size:18)]),
+      fund.when(loading:()=>const LinearProgressIndicator(),error:(e,st)=>TextButton(onPressed:()=>ref.invalidate(groupProvider(id)),child:const Text('Retry group balances')),data:(g)=>Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
+        Padding(padding:const EdgeInsets.symmetric(vertical:7),child:Wrap(spacing:8,runSpacing:4,crossAxisAlignment:WrapCrossAlignment.center,children:[StatusLabel(g.stage.label,positive:g.stage==TripStage.completed),Text('${g.roster.length} members · ${g.currency.code} · ${Dates.shortDate(DateTime.fromMillisecondsSinceEpoch(row['project_date'] as int))}',style:Theme.of(context).textTheme.bodySmall)])),
+        FinancialSummary([(label:'Collected',value:Money.format(g.collected,g.currency),color:null),(label:'Cash remaining',value:Money.format(g.cash,g.currency),color:g.cash<0?context.palette.expense:null)])
+      ]))
+    ]))));
   }
 }
 
@@ -98,6 +108,7 @@ class GroupDetails extends ConsumerWidget {
             appBar: AppBar(
               title: Text(g.name),
               bottom: const TabBar(
+                labelColor:Colors.white,unselectedLabelColor:Color(0xFFFAEAE9),indicatorColor:Colors.white,dividerColor:Colors.transparent,
                 isScrollable: true,
                 tabAlignment: TabAlignment.start,
                 tabs: [
@@ -173,43 +184,25 @@ class _GroupSection extends ConsumerWidget {
   );
   Widget stat(String name, int n) => Padding(
     padding: const EdgeInsets.symmetric(vertical: 5),
-    child: Row(
+    child: OverflowBar(
+      alignment: MainAxisAlignment.spaceBetween,
+      overflowAlignment: OverflowBarAlignment.end,
+      spacing: 8,
       children: [
-        Expanded(child: Text(name)),
-        Flexible(
-          child: Text(
-            money(n),
-            textAlign: TextAlign.end,
-            style: const TextStyle(fontWeight: FontWeight.w600),
-          ),
-        ),
+        Text(name),
+        Text(money(n),textAlign: TextAlign.end,
+            style: const TextStyle(fontWeight: FontWeight.w600)),
       ],
     ),
   );
-  Widget summary(BuildContext c) => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      Text(
-        '${g.stage.label} · ${g.roster.length} members · ${g.currency.code}',
-        style: Theme.of(c).textTheme.labelLarge,
-      ),
-      heading(c, 'Group cash'),
-      Text(money(g.cash), style: Theme.of(c).textTheme.headlineMedium),
-      stat('Expected contributions', g.expected),
-      stat('Collected', g.collected),
-      stat('Unpaid contributions', g.outstanding),
-      if (g.project['budget_minor'] != null)
-        stat('Planned budget', g.project['budget_minor'] as int),
-      stat('Total expenses', g.spent),
-      stat('Reimbursements due', g.owed(EntryKind.memberExpense)),
-      stat('Other unpaid bills', g.owed(EntryKind.liability)),
-      const Divider(),
-      stat(
-        g.surplus < 0 ? 'Deficit' : 'Available after obligations',
-        g.surplus.abs(),
-      ),
-    ],
-  );
+  Widget summary(BuildContext c)=>Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
+    Padding(padding:const EdgeInsets.only(bottom:8),child:Wrap(spacing:8,runSpacing:4,crossAxisAlignment:WrapCrossAlignment.center,children:[StatusLabel(g.stage.label,positive:g.stage==TripStage.completed),Text('${g.roster.length} members · ${g.currency.code}',style:Theme.of(c).textTheme.bodySmall)])),
+    FinancialSummary([(label:'Collected',value:money(g.collected),color:null),(label:'Spent',value:money(g.spent),color:c.palette.expense),(label:'Group cash',value:money(g.cash),color:null)]),
+  ]);
+  Widget obligationSummary(BuildContext c)=>Column(children:[
+    stat('Reimbursements due',g.owed(EntryKind.memberExpense)),stat('Other unpaid bills',g.owed(EntryKind.liability)),
+    const Divider(),stat(g.surplus<0?'Deficit':'Available for refunds',g.surplus.abs())
+  ]);
   Widget activity(BuildContext c, int id, TripEntry e) {
     final amount = e.amount > 0 ? e.amount : g.events[e.related]?.amount;
     return ListTile(
@@ -218,6 +211,7 @@ class _GroupSection extends ConsumerWidget {
       subtitle: Text(
         [
           Dates.shortDate(e.at),
+          if(e.kind.purchase)e.category,
           e.kind.label,
           if (e.member != null) g.members[e.member]!.name,
           if (g.reversed.contains(id)) 'Reversed',
@@ -306,15 +300,10 @@ class _GroupSection extends ConsumerWidget {
     return ExpansionTile(
       tilePadding: EdgeInsets.zero,
       title: Text(m.name),
-      subtitle: Text(
-        '${m.expected == 0
-            ? "No target"
-            : due == 0
-            ? "Fully paid"
-            : paid == 0
-            ? "Unpaid"
-            : "Partially paid"} · ${money(paid)} contributed',
-      ),
+      subtitle:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+        Text('Paid ${money(paid)} · Expected ${money(m.expected)}'),
+        StatusLabel(m.expected==0?'No target':due==0?'Fully paid':paid==0?'Unpaid':'Partially paid',positive:due==0 && m.expected>0)
+      ]),
       children: [
         stat('Expected', m.expected),
         stat('Remaining contribution', due),
@@ -403,6 +392,7 @@ class _GroupSection extends ConsumerWidget {
     }
     return [
       summary(c),
+      obligationSummary(c),
       if (g.stage != TripStage.completed)
         button(
           'Count group cash',
@@ -444,6 +434,7 @@ class _GroupSection extends ConsumerWidget {
           ),
         ),
       heading(c, g.frozen ? 'Confirmed refunds' : 'Refund preview'),
+      if(plan.isNotEmpty)Text(g.frozen?'Record each refund when the member receives it.':'Each member’s share is based on their actual contribution.',style:Theme.of(c).textTheme.bodySmall),
       if (error != null) Text(error),
       if (error == null)
         for (final m in g.roster)
@@ -631,18 +622,8 @@ class _GroupSection extends ConsumerWidget {
           Wrap(
             spacing: 8,
             children: [
-              if (g.editable)
-                button(
-                  'Add contribution',
-                  Icons.add,
-                  () => form(c, TripForm(TripFormMode.contribution, group: g)),
-                ),
-              if (g.editable)
-                button(
-                  'Add expense',
-                  Icons.shopping_basket_outlined,
-                  () => form(c, TripForm(TripFormMode.expense, group: g)),
-                ),
+              if(g.editable)FilledButton.icon(onPressed:()=>form(c,TripForm(TripFormMode.contribution,group:g)),icon:const Icon(Icons.add,size:18),label:const Text('Add contribution')),
+              if(g.editable)button('Add expense',Icons.shopping_basket_outlined,()=>form(c,TripForm(TripFormMode.expense,group:g))),
               button(
                 'View members',
                 Icons.groups_outlined,
@@ -655,6 +636,8 @@ class _GroupSection extends ConsumerWidget {
               ),
             ],
           ),
+          heading(c,'Fund balance'),
+          obligationSummary(c),
           heading(c, 'Recent activity'),
           if (g.events.isEmpty)
             const Text('Add the first contribution when you collect money.'),
@@ -688,6 +671,8 @@ class _GroupSection extends ConsumerWidget {
                 ),
               ),
             ),
+          heading(c,'Contribution plan'),stat('Expected contributions',g.expected),stat('Unpaid contributions',g.outstanding),
+          if(g.project['budget_minor']!=null)stat('Planned budget',g.project['budget_minor'] as int),
           heading(c, 'Group details'),
           Text(
             Dates.shortDate(

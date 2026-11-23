@@ -4,6 +4,11 @@ on:
   push:
     branches: [main, verify/moneytrack-3.0]
   workflow_dispatch:
+    inputs:
+      visual_review:
+        description: Capture the app on an Android emulator
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -43,7 +48,7 @@ jobs:
       - name: Upload debug-signed test APK
         uses: actions/upload-artifact@v4
         with:
-          name: MoneyTrack-3.3.0-debug-test-apk
+          name: MoneyTrack-3.4.0-debug-test-apk
           path: |
             build/app/outputs/flutter-apk/app-debug.apk
             build/app/outputs/flutter-apk/app-debug.apk.sha256
@@ -51,6 +56,31 @@ jobs:
           retention-days: 14
       - name: Run automated tests
         run: bash tool/ci_capture.sh 'Automated tests' bash tool/run_flutter_tests.sh
+
+      - name: Enable emulator acceleration
+        if: ${{ inputs.visual_review || contains(github.event.head_commit.message, '[visual review]') }}
+        run: sudo chmod a+rw /dev/kvm
+      - name: Capture Android screens
+        if: ${{ inputs.visual_review || contains(github.event.head_commit.message, '[visual review]') }}
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: default
+          arch: x86_64
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: |
+            adb shell wm size 780x1560
+            adb shell wm density 320
+            bash tool/ci_capture.sh 'Android visual walkthrough' flutter drive --no-pub --driver=test_driver/visual_review.dart --target=integration_test/visual_review_test.dart -d emulator-5554
+      - name: Upload Android screenshots
+        if: ${{ always() && (inputs.visual_review || contains(github.event.head_commit.message, '[visual review]')) }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: MoneyTrack-3.4.0-android-screens
+          path: build/visual-review
+          if-no-files-found: warn
+          retention-days: 14
 
   tests-only:
     if: ${{ contains(github.event.head_commit.message, '[checks only]') }}

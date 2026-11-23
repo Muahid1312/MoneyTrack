@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../../core/widgets/ledger_components.dart';
+import '../../../core/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
@@ -33,7 +35,7 @@ class _ProjectsState extends ConsumerState<ProjectsScreen> {
           (_type == 'all' || p.type.name == _type) &&
           (_status == 'all' || (_status == 'current' ? !p.isArchived : p.status.name == _status)) &&
           '${p.name} ${p.description} ${p.clientName}'.toLowerCase().contains(_query.trim().toLowerCase())).toList();
-        return ListView(padding: const EdgeInsets.fromLTRB(20, 12, 20, 100), children: [
+        return ListView(padding: const EdgeInsets.fromLTRB(14, 10, 14, 88), children: [
           TextField(decoration: const InputDecoration(labelText: 'Search projects or clients', prefixIcon: Icon(Icons.search)),
             onChanged: (v) => setState(() => _query = v)),
           const SizedBox(height: 16),
@@ -70,7 +72,7 @@ class _ProjectCard extends StatelessWidget {
   Widget build(BuildContext context) => Card(margin: const EdgeInsets.only(bottom: 12),
     child: InkWell(borderRadius: BorderRadius.circular(16),
       onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => ProjectDetailScreen(projectId: project.id!))),
-      child: Padding(padding: const EdgeInsets.all(20), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [Icon(projectIcons[project.icon] ?? Icons.folder_outlined, color: Color(project.color)),
           const SizedBox(width: 12), Expanded(child: Text(project.name, style: Theme.of(context).textTheme.titleMedium)),
           const Icon(Icons.chevron_right)]),
@@ -78,8 +80,7 @@ class _ProjectCard extends StatelessWidget {
         Text('${project.type.label} · ${project.status.label} · ${project.currency.code}'),
         if (project.clientName.isNotEmpty) Text(project.clientName),
         const SizedBox(height: 16),
-        Text('Net ${Money.format(summary.cashSurplus,project.currency,signed:true)}',style:Theme.of(context).textTheme.titleLarge),
-        Text('Income ${Money.format(summary.receipts,project.currency)} · Expenses ${Money.format(summary.expenses,project.currency)}'),
+        FinancialSummary([(label:'Income',value:Money.format(summary.receipts,project.currency),color:context.palette.income),(label:'Expenses',value:Money.format(summary.expenses,project.currency),color:context.palette.expense),(label:'Net',value:Money.format(summary.cashSurplus,project.currency,signed:true),color:null)]),
         if(project.budgetMinor!=null)Text('Budget ${Money.format(project.budgetMinor!,project.currency)}'),
         const SizedBox(height: 8),
         _BudgetProgress(summary: summary),

@@ -34,7 +34,7 @@ enum AppCurrency {
 
 abstract final class AppInfo {
   static const name = 'MoneyTrack';
-  static const version = '3.3.0';
+  static const version = '3.4.0';
   static const tagline = 'Calm, private money tracking.';
 
   /// Largest accepted amount in minor units, independently of currency precision.

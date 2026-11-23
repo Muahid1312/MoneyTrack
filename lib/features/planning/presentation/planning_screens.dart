@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import '../../../core/widgets/ledger_components.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/currency.dart';
@@ -73,15 +74,14 @@ class _DebtsState extends ConsumerState<DebtsScreen> {
     floatingActionButton:FloatingActionButton.extended(onPressed:()=>Navigator.push(context,MaterialPageRoute<void>(builder:(_)=>const DebtForm())),icon:const Icon(Icons.add),label:const Text('New debt')),
     body:ref.watch(planningProvider).when(loading:()=>const Center(child:CircularProgressIndicator()),error:(_,_)=>planningError(ref),data:(data){
       final debts=data?.debts.where((d)=>_status=='All'||d.status(DateTime.now())==_status).toList()??<Debt>[];
-      return ListView(padding:const EdgeInsets.fromLTRB(20,16,20,100),children:[
-        const Text('Track money you owe and money others owe you. Open a record to see repayments.'),
-        const SizedBox(height:16),
+      return ListView(padding:const EdgeInsets.fromLTRB(14,10,14,88),children:[
+
         DropdownButtonFormField<String>(isExpanded: true, initialValue:_status,decoration:const InputDecoration(labelText:'Status'),
           items:[for(final s in ['All','Active','Partially paid','Overdue','Settled'])DropdownMenuItem(value:s,child:Text(s))],onChanged:(v)=>setState(()=>_status=v!)),
         const SizedBox(height:16),if(debts.isEmpty)const Text('No matching debts. Record borrowing or lending to begin.'),
         for(final direction in [true,false])if(debts.any((d)=>d.borrowed==direction))...[
         Padding(padding:const EdgeInsets.symmetric(vertical:12),child:Text(direction?'Money I owe':'Money owed to me',style:Theme.of(context).textTheme.titleMedium)),
-        for(final d in debts.where((d)=>d.borrowed==direction))Card(child:ListTile(title:Text(d.contact),
+        for(final d in debts.where((d)=>d.borrowed==direction))Card(child:ListTile(leading:LedgerGlyph(direction?Icons.call_received_outlined:Icons.call_made_outlined),title:Text(d.contact),
           subtitle:Text('${d.borrowed?'Money I owe':'Money owed to me'} · ${d.status(DateTime.now())}${d.dueDate==null?'':'\nDue ${d.dueDate}'}'),
           trailing:Text('${Money.format(d.remainingMinor,d.currency)}\n${d.currency.code}'),
           onTap:()=>Navigator.push(context,MaterialPageRoute<void>(builder:(_)=>DebtDetailScreen(id:d.id)))))]
@@ -128,10 +128,10 @@ class GoalsScreen extends ConsumerWidget {
   Widget build(BuildContext context,WidgetRef ref)=>Scaffold(appBar:AppBar(title:const Text('Savings goals')),
     floatingActionButton:FloatingActionButton.extended(icon:const Icon(Icons.add),label:const Text('New goal'),
       onPressed:()=>Navigator.push(context,MaterialPageRoute<void>(builder:(_)=>const GoalForm()))),
-    body:ref.watch(planningProvider).when(loading:()=>const Center(child:CircularProgressIndicator()),error:(_,_)=>planningError(ref),data:(data)=>ListView(padding:const EdgeInsets.fromLTRB(20,16,20,100),children:[
+    body:ref.watch(planningProvider).when(loading:()=>const Center(child:CircularProgressIndicator()),error:(_,_)=>planningError(ref),data:(data)=>ListView(padding:const EdgeInsets.fromLTRB(14,10,14,88),children:[
       const Text('Reserve part of a wallet for a goal or emergency. The cash stays in that wallet until you spend it.'),
       if(data?.goals.isEmpty??true)const Padding(padding:EdgeInsets.all(24),child:Text('No savings goals yet.')),
-      for(final g in data?.goals??<SavingsGoal>[])Card(child:ListTile(leading:Icon(const {'savings':Icons.savings_outlined,'home':Icons.home_outlined,'travel':Icons.flight_outlined,'education':Icons.school_outlined}[g.row['icon']]??Icons.savings_outlined,color:Color(g.row['color'] as int)),
+      for(final g in data?.goals??<SavingsGoal>[])Card(child:ListTile(leading:LedgerGlyph(const {'savings':Icons.savings_outlined,'home':Icons.home_outlined,'travel':Icons.flight_outlined,'education':Icons.school_outlined}[g.row['icon']]??Icons.savings_outlined,color:Color(g.row['color'] as int)),
         title:Text(g.name),subtitle:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
           Text('${g.emergency?'Emergency fund · ':''}${g.status} · ${g.currency.code}${g.targetDate==null?'':' · Due ${g.targetDate}'}'),
           LinearProgressIndicator(value:g.progress.clamp(0.0,1.0).toDouble()),
@@ -210,7 +210,7 @@ class RecurringScreen extends ConsumerWidget {
     body:ref.watch(planningProvider).when(loading:()=>const Center(child:CircularProgressIndicator()),error:(_,_)=>planningError(ref),data:(data){
       if(data==null)return const Center(child:Text('Planning storage unavailable'));
       final pending=data.occurrences.where((o)=>o.status=='pending').toList();
-      return ListView(padding:const EdgeInsets.fromLTRB(20,16,20,100),children:[
+      return ListView(padding:const EdgeInsets.fromLTRB(14,10,14,88),children:[
         const Text('Choose automatic recording or review each entry when it is due. Payments are made separately.'),
         OutlinedButton.icon(icon:const Icon(Icons.sync),label:const Text('Check missed occurrences'),
           onPressed:()=>planningAction(context,ref,()=>ref.read(planningRepositoryProvider)!.reconcile())),

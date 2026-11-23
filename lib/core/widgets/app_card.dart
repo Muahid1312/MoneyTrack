@@ -9,7 +9,7 @@ class AppCard extends StatelessWidget {
   const AppCard({
     super.key,
     required this.child,
-    this.padding = const EdgeInsets.all(AppSpacing.xl),
+    this.padding = const EdgeInsets.all(AppSpacing.lg),
     this.onTap,
     this.color,
     this.radius = AppRadii.card,
@@ -24,8 +24,7 @@ class AppCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
-    final card = AnimatedContainer(
-      duration: AppDurations.medium,
+    final card = Container(
       padding: padding,
       decoration: BoxDecoration(
         color: color ?? p.surface,
@@ -33,7 +32,6 @@ class AppCard extends StatelessWidget {
         border: Border.all(
           color: context.isDark ? p.border : p.border.withValues(alpha: 0.6),
         ),
-        boxShadow: AppShadows.card(context),
       ),
       child: child,
     );
@@ -90,15 +88,11 @@ class SectionHeader extends StatelessWidget {
                 children: [
                   Text(actionLabel!,
                       style: t.labelLarge?.copyWith(
-                          color: context.isDark
-                              ? AppColors.emeraldBright
-                              : AppColors.emeraldDeep)),
+                          color: Theme.of(context).colorScheme.primary)),
                   const SizedBox(width: 2),
                   Icon(Icons.chevron_right_rounded,
                       size: 18,
-                      color: context.isDark
-                          ? AppColors.emeraldBright
-                          : AppColors.emeraldDeep),
+                      color: Theme.of(context).colorScheme.primary),
                 ],
               ),
             ),

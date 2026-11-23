@@ -15,7 +15,8 @@ abstract final class AppTheme {
       seedColor: AppColors.primary,
       brightness: brightness,
     ).copyWith(
-      primary: isDark ? AppColors.primaryLight : AppColors.primary,
+      primary: isDark ? AppColors.primaryLight : AppColors.primaryDark,
+      primaryContainer: isDark ? const Color(0xFF412726) : const Color(0xFFFBE9E7),
       onPrimary: isDark ? AppColors.navy900 : Colors.white,
       secondary: isDark ? AppColors.slate200 : AppColors.navy900,
       onSecondary: isDark ? AppColors.navy900 : Colors.white,
@@ -58,18 +59,20 @@ abstract final class AppTheme {
       }),
       appBarTheme: AppBarTheme(
         backgroundColor:isDark?p.surface:AppColors.primaryDark,foregroundColor:Colors.white,
-        surfaceTintColor:Colors.transparent,toolbarHeight:50,elevation:0,
+        surfaceTintColor:Colors.transparent,toolbarHeight:48,elevation:0,
         titleTextStyle:text.titleLarge?.copyWith(color:Colors.white),
         iconTheme:const IconThemeData(color:Colors.white),
         systemOverlayStyle:SystemUiOverlayStyle.light,
       ),
+      dividerTheme: DividerThemeData(color:p.border,thickness:.7,space:1),
+      expansionTileTheme: ExpansionTileThemeData(iconColor:scheme.primary,textColor:p.textPrimary,shape:Border(bottom:BorderSide(color:p.border)),collapsedShape:Border(bottom:BorderSide(color:p.border))),
       iconTheme: IconThemeData(color: p.textPrimary, size: 22),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: p.surfaceMuted,
         hintStyle: text.bodyMedium?.copyWith(color: p.textTertiary),
         contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         border: controlBorder.copyWith(borderSide: BorderSide.none),
         enabledBorder: controlBorder.copyWith(borderSide: BorderSide.none),
         focusedBorder: controlBorder.copyWith(
@@ -106,7 +109,7 @@ abstract final class AppTheme {
         modalBackgroundColor: p.surfaceElevated,
         showDragHandle: false,
         shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
         ),
       ),
       datePickerTheme: DatePickerThemeData(

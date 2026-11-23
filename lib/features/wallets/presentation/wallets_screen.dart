@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import '../../../core/widgets/ledger_components.dart';
+import '../../../core/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/currency.dart';
 import '../../../core/utils/money.dart';
 import '../../../data/models/wallet.dart';
+import '../../../data/repositories/wallet_repository.dart';
 import '../../planning/presentation/planning_screens.dart';
 import '../../transactions/application/transactions_controller.dart';
 import '../../transactions/presentation/transaction_actions.dart';
@@ -31,17 +34,17 @@ class WalletsScreen extends ConsumerWidget {
           if (snapshot == null) return const Center(child: Text('Wallet storage is unavailable'));
           final currencies=ref.watch(currencyBalancesProvider);
           return ListView(padding:const EdgeInsets.fromLTRB(12,8,12,88),children:[
-            Text('Balances by currency',style:Theme.of(context).textTheme.titleMedium),
-            const Text('Original amounts · no exchange rates applied'),
             if(snapshot.wallets.isEmpty)const ListTile(title:Text('Create your first wallet to start tracking.')),
-            for(final e in currencies.entries)...[
-              Container(color:Theme.of(context).colorScheme.surfaceContainerHighest,padding:const EdgeInsets.all(10),child:Wrap(alignment:WrapAlignment.spaceBetween,spacing:12,children:[Text(e.key.code),Text(Money.format(e.value,e.key),style:Theme.of(context).textTheme.titleMedium)])),
-              for(final w in snapshot.wallets.where((w)=>w.currency==e.key))...[
-                ListTile(dense:true,contentPadding:EdgeInsets.zero,leading:Icon(w.archived?Icons.archive_outlined:Icons.account_balance_wallet_outlined),title:Text(w.name),subtitle:Text('${w.type.label} · ${w.currency.code}${w.archived?" · Archived":""}'),trailing:ConstrainedBox(constraints:BoxConstraints(maxWidth:MediaQuery.sizeOf(context).width*.38),child:FittedBox(fit:BoxFit.scaleDown,child:Text(Money.format(snapshot.balances[w.id]!,w.currency)))),onTap:()=>Navigator.push(context,MaterialPageRoute<void>(builder:(_)=>WalletDetailsScreen(walletId:w.id!)))),
-                if((snapshot.reserved[w.id]??0)!=0)Padding(padding:const EdgeInsets.only(bottom:6),child:Text('Available ${Money.format(snapshot.available(w.id!),w.currency)} · Reserved ${Money.format(snapshot.reserved[w.id]!,w.currency)}')),
-                const Divider(height:1),
-              ],
-            ],
+            for(final e in currencies.entries) ...[
+              Padding(padding:const EdgeInsets.symmetric(vertical:8),child:Text('${e.key.name} · ${e.key.code}',style:Theme.of(context).textTheme.titleMedium)),
+              FinancialSummary([
+                (label:'Cash',value:Money.format(e.value,e.key),color:null),
+                (label:'Reserved',value:Money.format(snapshot.wallets.where((w)=>w.currency==e.key).fold<int>(0,(n,w)=>n+(snapshot.reserved[w.id]??0)),e.key),color:null),
+                (label:'Available',value:Money.format(snapshot.wallets.where((w)=>w.currency==e.key).fold<int>(0,(n,w)=>n+snapshot.available(w.id!)),e.key),color:context.palette.textPrimary)
+              ]),
+              for(final w in snapshot.wallets.where((w)=>w.currency==e.key))
+                _AccountRow(wallet:w,snapshot:snapshot),
+            ]
           ]);
         },
       ),
@@ -50,6 +53,40 @@ class WalletsScreen extends ConsumerWidget {
 
   static Future<void> _edit(BuildContext context, [Wallet? wallet]) =>
     Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => WalletEditorScreen(wallet: wallet)));
+}
+
+class _AccountRow extends StatelessWidget{
+  const _AccountRow({required this.wallet,required this.snapshot});
+  final Wallet wallet;final WalletSnapshot snapshot;
+  @override Widget build(BuildContext context){
+    final w=wallet,c=w.currency,id=w.id!,reserved=snapshot.reserved[w.id]??0;
+    final t = Theme.of(context).textTheme;
+    final narrow = MediaQuery.sizeOf(context).width < 350 ||
+        MediaQuery.textScalerOf(context).scale(14) > 18;
+    final identity = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(w.name, style: t.titleMedium),
+      Text('${w.type.label} · ${c.code}${w.archived ? " · Archived" : ""}', style: t.bodySmall),
+    ]);
+    final amount = Column(crossAxisAlignment: narrow ? CrossAxisAlignment.start : CrossAxisAlignment.end, children: [
+      Text(Money.format(snapshot.available(id),c), style: t.titleSmall),
+      Text('Available', style: t.labelSmall),
+    ]);
+    return Material(color: context.palette.surface, child: InkWell(
+      onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => WalletDetailsScreen(walletId: id))),
+      child: Column(children: [
+        Padding(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10), child: Row(children: [
+          LedgerGlyph(w.archived ? Icons.archive_outlined : Icons.account_balance_wallet_outlined),
+          const SizedBox(width: 10),
+          Expanded(child: narrow ? Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            identity, const SizedBox(height: 4), amount,
+          ]) : Row(children: [Expanded(child: identity), const SizedBox(width: 8), Flexible(child: Align(alignment: AlignmentDirectional.centerEnd, child: amount))])),
+        ])),
+        if (reserved != 0) Padding(padding: const EdgeInsets.fromLTRB(12,0,12,8), child: Align(alignment: AlignmentDirectional.centerEnd,
+          child: Text('Cash ${Money.format(snapshot.balances[id]!,c)} · Reserved ${Money.format(reserved,c)}', style: t.bodySmall))),
+        const Divider(),
+      ]),
+    ));
+  }
 }
 
 class _Failure extends StatelessWidget {
