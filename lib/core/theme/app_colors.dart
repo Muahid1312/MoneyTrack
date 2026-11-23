@@ -8,9 +8,9 @@ abstract final class AppColors {
   static const primaryLight = Color(0xFFFFAAA3);
 
   // Midnight navy scale
-  static const navy950 = Color(0xFF0B1220);
+  static const navy950 = Color(0xFF141517);
   static const navy900 = Color(0xFF222222);
-  static const navy800 = Color(0xFF1D2939);
+  static const navy800 = Color(0xFF27282C);
   static const navy700 = Color(0xFF344054);
   static const navy600 = Color(0xFF475467);
 
@@ -19,7 +19,7 @@ abstract final class AppColors {
   static const slate400 = Color(0xFF98A2B3);
   static const slate300 = Color(0xFFD0D5DD);
   static const slate200 = Color(0xFFE5E5E5);
-  static const slate100 = Color(0xFFF2F4F7);
+  static const slate100 = Color(0xFFF2F2F2);
   static const offWhite = Color(0xFFF7F7F7);
   static const white = Color(0xFFFFFFFF);
 
@@ -70,6 +70,7 @@ class AppPalette extends ThemeExtension<AppPalette> {
   final Color textPrimary;
   final Color textSecondary;
   final Color textTertiary;
+  Color get success => background.computeLuminance()<.25?const Color(0xFF74D9A1):const Color(0xFF137448);
   final Color income;
   final Color incomeSoft;
   final Color expense;
@@ -104,13 +105,13 @@ class AppPalette extends ThemeExtension<AppPalette> {
 
   static const dark = AppPalette(
     background: AppColors.navy950,
-    surface: Color(0xFF151E2E),
-    surfaceMuted: Color(0xFF172133),
+    surface: Color(0xFF1C1D20),
+    surfaceMuted: Color(0xFF252629),
     surfaceElevated: AppColors.navy800,
-    border: Color(0xFF223047),
+    border: Color(0xFF393A3E),
     textPrimary: Color(0xFFF7F7F7),
-    textSecondary: Color(0xFF94A3B8),
-    textTertiary: Color(0xFF94A3B8),
+    textSecondary: Color(0xFFB5B5B9),
+    textTertiary: Color(0xFFB5B5B9),
     income: AppColors.incomeLight,
     incomeSoft: Color(0xFF192D40),
     expense: AppColors.roseSoft,
@@ -119,8 +120,8 @@ class AppPalette extends ThemeExtension<AppPalette> {
     warningSoft: Color(0xFF2E2614),
     shadow: Color(0xFF000000),
     navBar: AppColors.navy900,
-    chartGrid: Color(0xFF1C2638),
-    chartTrack: Color(0xFF1A2436),
+    chartGrid: Color(0xFF343539),
+    chartTrack: Color(0xFF292A2E),
   );
 
   @override
@@ -154,6 +155,6 @@ class AppPalette extends ThemeExtension<AppPalette> {
 }
 
 extension PaletteContext on BuildContext {
-  AppPalette get palette => Theme.of(this).extension<AppPalette>()!;
+  AppPalette get palette => Theme.of(this).extension<AppPalette>() ?? (isDark ? AppPalette.dark : AppPalette.light);
   bool get isDark => Theme.of(this).brightness == Brightness.dark;
 }

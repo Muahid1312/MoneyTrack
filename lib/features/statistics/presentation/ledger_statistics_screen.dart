@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../../core/constants/currency.dart';
 import '../../../core/utils/date_utils.dart';
 import '../../../core/utils/money.dart';
+import '../../../core/widgets/ledger_components.dart';
 import '../../../data/repositories/providers.dart';
 import '../../settings/application/settings_controller.dart';
 import '../../transactions/application/transactions_controller.dart';
@@ -96,12 +97,10 @@ class _StatsState extends ConsumerState<LedgerStatisticsScreen> {
                         () => month = DateTime(month.year, month.month - 1),
                       ),
                     ),
-                    Flexible(
-                      child: Text(
-                        DateFormat('MMMM y').format(month),
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                    ),
+                    Flexible(child:TextButton(onPressed:()async{
+                      final d=await chooseLedgerDate(context,month);
+                      if(d!=null && mounted)setState(()=>month=DateTime(d.year,d.month));
+                    },child:Text(DateFormat('MMMM y').format(month),style:Theme.of(context).textTheme.titleMedium))),
                     IconButton(
                       tooltip: 'Next statistics month',
                       icon: const Icon(Icons.chevron_right),
@@ -117,22 +116,7 @@ class _StatsState extends ConsumerState<LedgerStatisticsScreen> {
                   currency: currency,
                 ),
                 const Divider(height: 1),
-                Wrap(
-                  alignment: WrapAlignment.center,
-                  spacing: 8,
-                  children: [
-                    ChoiceChip(
-                      label: const Text('Expenses'),
-                      selected: !income,
-                      onSelected: (_) => setState(() => income = false),
-                    ),
-                    ChoiceChip(
-                      label: const Text('Income'),
-                      selected: income,
-                      onSelected: (_) => setState(() => income = true),
-                    ),
-                  ],
-                ),
+                LedgerModes<bool>(options:const {false:'Expenses',true:'Income'},selected:income,onChange:(v)=>setState(()=>income=v)),
                 if (groups.isEmpty)
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 28),
@@ -153,14 +137,14 @@ class _StatsState extends ConsumerState<LedgerStatisticsScreen> {
                       onSelect: (i) {
                         if (i != null) drill(i);
                       },
-                      center: Text(income ? 'Income' : 'Expenses'),
+                      center:FittedBox(fit:BoxFit.scaleDown,child:Text(income?'Income':'Spent',style:Theme.of(context).textTheme.labelMedium)),
                     ),
                   ),
                   for (var i = 0; i < groups.length; i++)
                     ListTile(
                       dense: true,
                       contentPadding: EdgeInsets.zero,
-                      leading: Icon(
+                      leading: LedgerGlyph(
                         groups[i].category.icon,
                         color: groups[i].category.color,
                       ),

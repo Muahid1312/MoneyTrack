@@ -6,6 +6,7 @@ import '../../app/app_shell.dart';
 import '../../core/constants/categories.dart';
 import '../../core/utils/date_utils.dart';
 import '../../core/utils/money.dart';
+import '../../core/widgets/ledger_components.dart';
 import '../transactions/application/transactions_controller.dart';
 import '../wallets/application/wallet_providers.dart';
 import '../backup/presentation/backup_screen.dart';
@@ -25,115 +26,115 @@ import '../wallets/presentation/wallets_screen.dart';
 import '../dashboard/presentation/dashboard_screen.dart';
 
 enum MoneyFeature {
-  overview('Financial planning','Available cash','Check cash, reserved savings and wallet spending plans.','dashboard home today available balance budget emergency',Icons.account_balance_outlined),
+  overview('Planning','Available cash','Check cash, reserved savings and wallet spending plans.','dashboard home today available balance budget emergency',Icons.account_balance_outlined),
   wallets(
-    'Accounts and records',
+    'Group Money',
     'Wallets and accounts',
     'Check cash and view each account’s history.',
     'bank cash opening balance archive',
     Icons.account_balance_wallet_outlined,
   ),
   transfer(
-    'Accounts and records',
+    'Group Money',
     'Transfer money',
     'Move cash between your wallets.',
     'send exchange fx rate conversion',
     Icons.swap_horiz,
   ),
   categories(
-    'Accounts and records',
+    'Tools',
     'Categories',
     'Browse income and spending by category.',
     'food salary groceries transport dining',
     Icons.category_outlined,
   ),
   activity(
-    'Accounts and records',
+    'Financial Management',
     'Transactions and receipts',
     'Find an entry to edit it or attach a receipt.',
     'activity history delete undo camera photo pdf search filters',
     Icons.receipt_long_outlined,
   ),
   add(
-    'Accounts and records',
+    'Financial Management',
     'Add a transaction',
     'Record an expense or income.',
     'payment purchase salary deposit entry',
     Icons.add_circle_outline,
   ),
   budget(
-    'Financial planning',
+    'Planning',
     'Wallet budgets',
     'Set spending limits by wallet, period or category.',
     'daily weekly custom rollover budget planning overspend',
     Icons.donut_large_outlined,
   ),
   monthly(
-    'Financial planning',
+    'Planning',
     'Monthly spending limit',
     'Track one monthly limit across a reporting currency.',
     'budget alert warning overall',
     Icons.track_changes,
   ),
   savings(
-    'Financial planning',
+    'Planning',
     'Savings goals',
     'Reserve cash for a goal or emergency fund.',
     'save money saving savings withdrawal contribution weekly replenishment target',
     Icons.savings_outlined,
   ),
   recurring(
-    'Financial planning',
+    'Planning',
     'Recurring transactions',
     'Schedule repeated entries and review due items.',
     'rent bills salary repeat subscription automatic confirmation',
     Icons.event_repeat,
   ),
   debts(
-    'Money management',
+    'Financial Management',
     'Debts and loans',
     'Track money you owe and money owed to you.',
     'borrowed money borrowing lending lent loan credit repayments principal',
     Icons.handshake_outlined,
   ),
   upcoming(
-    'Money management',
+    'Planning',
     'Upcoming payments',
     'Check due dates and entries awaiting review.',
     'obligations overdue deadlines upcoming bills pending',
     Icons.event_outlined,
   ),
   reminders(
-    'Money management',
+    'Planning',
     'Local reminders',
     'Choose whether Android shows due-date notifications.',
     'notification notify alarm reconcile planning',
     Icons.notifications_outlined,
   ),
-  groups('Money management','Groups & Trips','Collect contributions, track shared purchases and settle refunds.','friends picnic group expenses trip fund football futsal outing shared split reimbursements',Icons.groups_outlined),
+  groups('Group Money','Groups & Trips','Collect contributions, track shared purchases and settle refunds.','friends picnic group expenses trip fund football futsal outing shared split reimbursements',Icons.groups_outlined),
   projects(
-    'Money management',
+    'Financial Management',
     'Projects',
     'Track project income, costs and client payments.',
     'business project finances assignments categories contract allocations',
     Icons.folder_outlined,
   ),
   insights(
-    'Money management',
+    'Financial Management',
     'Spending insights',
     'Compare spending and income over time.',
     'analytics statistics trends chart balance categories',
     Icons.bar_chart,
   ),
   reports(
-    'Money management',
+    'Financial Management',
     'Financial reports',
     'Filter financial records and export PDF or CSV.',
     'detailed reports cash flow project summaries print',
     Icons.assessment_outlined,
   ),
   currency(
-    'Money management',
+    'Tools',
     'Reporting currency',
     'Choose the original currency to include in reports.',
     'currency tools afn usd afghani dollar eur pkr jpy kwd',
@@ -160,6 +161,7 @@ enum MoneyFeature {
     'export csv excel download share',
     Icons.ios_share,
   ),
+  appearance('Application','Appearance','Choose light, dark or system theme.','display night mode day theme colors',Icons.contrast_outlined),
   settings(
     'Application',
     'Settings',
@@ -225,6 +227,7 @@ enum MoneyFeature {
       backup => const BackupScreen(),
       security => const SecuritySettingsScreen(),
       export => const SettingsScreen(page: SettingsPage.export),
+      appearance => const SettingsScreen(page:SettingsPage.appearance),
       settings => const SettingsScreen(),
       _ => throw StateError('Unknown destination'),
     };
@@ -420,7 +423,6 @@ class _ExploreState extends ConsumerState<ExploreScreen> {
   Widget build(BuildContext context) {
     final query = _search.text.trim();
     final items = MoneyFeature.values.where((f) => f.available && f.matches(query));
-    final theme = Theme.of(context);
     return Scaffold(appBar:AppBar(title:const Text('More'),actions:[IconButton(tooltip:'Quick guide',icon:const Icon(Icons.help_outline),onPressed:()=>showQuickGuide(context))]),body: ListView(
         padding: const EdgeInsets.fromLTRB(12, 10, 12, 20),
         children: [
@@ -431,7 +433,7 @@ class _ExploreState extends ConsumerState<ExploreScreen> {
             decoration: InputDecoration(
               prefixIcon: const Icon(Icons.search),
               labelText: 'Find a feature',
-              hintText: 'Try borrowed money or backup',
+              hintText: 'Try trip, borrow, savings or backup',
               suffixIcon: query.isEmpty
                   ? null
                   : IconButton(
@@ -481,31 +483,15 @@ class _ExploreState extends ConsumerState<ExploreScreen> {
                 'No matching features. Try a shorter name such as “debt” or “wallet”.',
               ),
             ),
-          for (final group in items.map((f) => f.group).toSet()) ...[
+          for (final group in const ['Group Money','Planning','Financial Management','Tools','Application']) if(items.any((f)=>f.group==group)) ...[
             _Heading(group),
             Card(
               clipBehavior: Clip.antiAlias,
               child: Column(
                 children: [
-                  for (final f in items.where((f) => f.group == group))
-                    ListTile(
-                      key: ValueKey('feature-${f.name}'),
-                      leading: Icon(f.icon, color: theme.colorScheme.primary),
-                      title: Text(f.title),
-                      subtitle: Text(f.description),
-                      onTap: () => _open(f),
-                      trailing: IconButton(
-                        tooltip: _pins.contains(f)
-                            ? 'Unpin ${f.title}'
-                            : 'Pin ${f.title}',
-                        onPressed: _ready ? () => _pin(f) : null,
-                        icon: Icon(
-                          _pins.contains(f)
-                              ? Icons.push_pin
-                              : Icons.push_pin_outlined,
-                        ),
-                      ),
-                    ),
+                  for(final f in [if(group=='Group Money' && items.contains(MoneyFeature.groups))MoneyFeature.groups,...items.where((f)=>f.group==group && f!=MoneyFeature.groups)])
+                    _FeatureTile(key:ValueKey('feature-${f.name}'),feature:f,pinned:_pins.contains(f),onOpen:()=>_open(f),onPin:_ready?()=>_pin(f):null),
+
                 ],
               ),
             ),
@@ -515,6 +501,17 @@ class _ExploreState extends ConsumerState<ExploreScreen> {
       ),
     );
   }
+}
+
+class _FeatureTile extends StatelessWidget {
+  const _FeatureTile({super.key,required this.feature,required this.pinned,required this.onOpen,required this.onPin});
+  final MoneyFeature feature;final bool pinned;final VoidCallback onOpen;final VoidCallback? onPin;
+  @override Widget build(BuildContext context)=>Column(children:[ListTile(
+    contentPadding:const EdgeInsetsDirectional.only(start:12,end:0),
+    leading:LedgerGlyph(feature.icon),title:Text(feature.title),subtitle:Text(feature.description),onTap:onOpen,
+    trailing:IconButton(tooltip:'${pinned?"Unpin":"Pin"} ${feature.title}',onPressed:onPin,icon:Icon(pinned?Icons.push_pin:Icons.push_pin_outlined,size:18))),
+    const Divider(indent:56)
+  ]);
 }
 
 class _RecordMatches extends ConsumerWidget {

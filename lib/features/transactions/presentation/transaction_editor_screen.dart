@@ -377,11 +377,15 @@ class _TransactionEditorScreenState
     Navigator.of(context).pop(EditorResult.deleted);
   }
 
+  List<TransactionCategory> get orderedCategories {
+    final cats=[...Categories.forType(_type)];
+    final rank={for(var i=0;i<cats.length;i++)cats[i].id:i};
+    cats.sort((a,b){final delta=(_usage[b.id]??0).compareTo(_usage[a.id]??0);return delta!=0?delta:rank[a.id]!.compareTo(rank[b.id]!);});
+    return cats;
+  }
+
   Future<void> _chooseCategory() async {
-    final cats = [...Categories.forType(_type)];
-    if (_usage.isNotEmpty) {
-      cats.sort((a, b) => (_usage[b.id] ?? 0).compareTo(_usage[a.id] ?? 0));
-    }
+    final cats=orderedCategories;
     final picked = await showModalBottomSheet<String>(
       context: context,
       useSafeArea: true,
@@ -700,6 +704,7 @@ class _TransactionEditorScreenState
                       ),
                       decoration: InputDecoration(
                         hintText: '0',
+                        filled:false,contentPadding:EdgeInsets.zero,enabledBorder:InputBorder.none,
                         suffixText: _currency.code,
                       ),
                       onChanged: (v) {
@@ -719,11 +724,18 @@ class _TransactionEditorScreenState
                       maxLength: 240,
                       decoration: const InputDecoration(
                         hintText: 'Optional',
+                        filled:false,contentPadding:EdgeInsets.zero,enabledBorder:InputBorder.none,
                         counterText: '',
                       ),
                       onChanged: (v) => _note = v.trim(),
                     ),
                   ),
+                  if(!_isEdit && _categoryId==null)Padding(
+                    padding:const EdgeInsets.only(top:6),
+                    child:Wrap(spacing:6,children:[for(final cat in orderedCategories.take(3))
+                      ActionChip(key:ValueKey('quick-category-${cat.id}'),avatar:Icon(cat.icon,size:16),label:Text(cat.name),
+                        onPressed:_saving?null:()=>setState((){_categoryId=cat.id;_error=null;}))
+                    ])),
                   ExpansionTile(
                     title: const Text('More details'),
                     initiallyExpanded: _project.projectId != null,

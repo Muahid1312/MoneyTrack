@@ -1,0 +1,16 @@
+# MoneyTrack UI audit
+
+Audited main at `25f47bb`, version 3.3.0. Flutter Material routes and a Riverpod-backed four-tab shell power the Android app. SQLite schema 7 stores the local wallet, planning, project and group ledgers. The redesign can use their current snapshots and posting interfaces.
+
+|Area|Observed path and usability issue|Design response|
+|---|---|---|
+|Transactions|The calendar is already Home. The month arrows work, but reaching a distant date needs repeated taps. Unselected cells are hard to scan and the two switches use different visual systems.|Give the month direct date navigation, strengthen date and total alignment, and share the selection pattern.|
+|Entry and transfer|The existing three-type editor remembers a wallet, validates minor units and blocks duplicate saves. Category selection always requires a second screen. The transfer form already handles both wallets and rates.|Expose relevant category shortcuts. Preserve the full picker, native keyboard, validated transfer preview, reuse star and optional metadata.|
+|Statistics|The category donut and rows already drill through to records. Month navigation, totals and filters use different layouts from the ledger.|Share financial columns and mode controls. Keep the chart, date navigation and underlying reports.|
+|Accounts|Wallet cash is primary. Reserved and available figures appear as unlabelled follow-on lines only when savings exist.|Give each currency a spendable total and place reservation details inside the corresponding wallet row.|
+|Groups & Trips|All four sections, payment sources, journal corrections, proportional refunds and exports are implemented. The group index shows name and date alone. Collection actions follow a long summary. A member’s expected amount requires expansion.|Put live collected cash, remaining cash, member count and state on the index. Bring frequently used posting actions up. Make member and settlement status readable in the list.|
+|Budgets and available cash|Wallet plans and the reporting-currency monthly limit have separate scopes. A 196-pixel progress ring and four cards push spending detail down.|Use a compact limit, actual and remaining strip, plus progress and the existing allowance details. Preserve wallet plans and the personal cash dashboard.|
+|More and Settings|The feature registry already supplies working destinations, ordered pins and synonyms. Groups & Trips appears within a long mixed group. Appearance requires opening Settings.|Lead with Group Money, group tools by task, and give Appearance a direct destination. Preserve IDs used by existing pins.|
+|Secondary tools|Debts, savings, recurring, reminders, projects, receipts, reports, export, encrypted restore, security and settings have functional Material routes. Shared cards and headings still carry older styling.|Apply the shared surfaces, controls, outlines and typography while retaining each task’s validations and confirmation steps.|
+
+The existing route walkthrough exercises every registered feature. The source audit found no unimplemented primary destination. Physical share targets and device authentication require phone testing. [Feature inventory](moneytrack-feature-inventory.md) · [Group architecture](group-expenses-architecture.md)

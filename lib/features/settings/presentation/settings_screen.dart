@@ -21,7 +21,7 @@ import '../../transactions/application/transactions_controller.dart';
 import '../application/data_export_service.dart';
 import '../application/settings_controller.dart';
 
-enum SettingsPage { preferences, currency, export }
+enum SettingsPage { preferences, currency, export, appearance }
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key, this.page = SettingsPage.preferences});
@@ -109,11 +109,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
-    final t = Theme.of(context).textTheme;
+    final t=Theme.of(context).textTheme;
     final settings = ref.watch(settingsProvider);
     final count = ref.watch(allTransactionsProvider).length;
     final currency = settings.currency;
 
+    if(widget.page==SettingsPage.appearance){
+      return Scaffold(appBar:AppBar(title:const Text('Appearance')),body:ListView(children:[
+        for(final mode in ThemeMode.values)ListTile(leading:Icon(switch(mode){ThemeMode.system=>Icons.brightness_auto_outlined,ThemeMode.light=>Icons.light_mode_outlined,ThemeMode.dark=>Icons.dark_mode_outlined}),title:Text(switch(mode){ThemeMode.system=>'Use device setting',ThemeMode.light=>'Light',ThemeMode.dark=>'Dark'}),selected:mode==settings.themeMode,trailing:mode==settings.themeMode?const Icon(Icons.check):null,onTap:()=>ref.read(settingsProvider.notifier).setThemeMode(mode))
+      ]));
+    }
     if (widget.page == SettingsPage.currency) {
       return Scaffold(appBar: AppBar(title: const Text('Reporting currency')), body: ListView(children: [
         ListTile(leading: const Icon(Icons.payments_outlined), title: Text(currency.name), subtitle: Text('Reports include entries in ${currency.code}. Choose a currency to change the view.'), trailing: const Icon(Icons.expand_more), onTap: _pickCurrency),
@@ -146,86 +151,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ),
       children: [
         const _GroupLabel('Preferences'),
-        // Profile
-        Pressable(
-          onTap: _editName,
-          scale: 0.985,
-          semanticLabel: 'Edit your name',
-          child: Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              borderRadius: AppRadii.card,
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0xFF1F2B3E), AppColors.navy900],
-              ),
-              boxShadow: AppShadows.hero(context),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 52,
-                  height: 52,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: const LinearGradient(
-                      colors: [AppColors.primaryLight, AppColors.primaryDark],
-                    ),
-                    boxShadow: AppShadows.glow(AppColors.primary, strength: 0.3),
-                  ),
-                  alignment: Alignment.center,
-                  child: settings.userName.isEmpty
-                      ? const Icon(Icons.person_outline_rounded, color: Colors.white)
-                      : Text(settings.userName[0].toUpperCase(),
-                          style: t.titleLarge?.copyWith(color: Colors.white)),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(settings.userName.isEmpty ? 'Add your name' : settings.userName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: t.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.w700)),
-                      const SizedBox(height: 2),
-                      Text('$count ${count == 1 ? 'transaction' : 'transactions'} · on this device',
-                          style: t.bodySmall?.copyWith(color: Colors.white.withValues(alpha: 0.6))),
-                    ],
-                  ),
-                ),
-                Icon(Icons.edit_outlined, size: 18, color: Colors.white.withValues(alpha: 0.7)),
-              ],
-            ),
-          ),
-        ),
-
+        _Group(children:[ListTile(leading:const Icon(Icons.person_outline),title:Text(settings.userName.isEmpty?'Add your name':settings.userName),subtitle:Text('$count ${count==1?"transaction":"transactions"} · on this device'),trailing:const Icon(Icons.edit_outlined),onTap:_editName)]),
         const _GroupLabel('Appearance'),
-        _Group(children: [
-          Padding(
-            padding: const EdgeInsets.all(14),
-            child: SegmentedSwitch<ThemeMode>(
-              values: const [ThemeMode.light, ThemeMode.dark, ThemeMode.system],
-              selected: settings.themeMode,
-              labelOf: (m) => switch (m) {
-                ThemeMode.light => 'Light',
-                ThemeMode.dark => 'Dark',
-                ThemeMode.system => 'System',
-              },
-              iconOf: (m) => switch (m) {
-                ThemeMode.light => Icons.light_mode_outlined,
-                ThemeMode.dark => Icons.dark_mode_outlined,
-                ThemeMode.system => Icons.brightness_auto_outlined,
-              },
-              onChanged: (m) {
-                HapticFeedback.selectionClick();
-                ref.read(settingsProvider.notifier).setThemeMode(m);
-              },
-            ),
-          ),
-        ]),
-
+        _Group(children:[ListTile(leading:const Icon(Icons.contrast_outlined),title:const Text('Appearance'),subtitle:Text(settings.themeMode.name),trailing:const Icon(Icons.chevron_right),onTap:()=>Navigator.push(context,MaterialPageRoute<void>(builder:(_)=>const SettingsScreen(page:SettingsPage.appearance))))]),
         const _GroupLabel('Device data'),
         _Group(children: [
           _Tile(

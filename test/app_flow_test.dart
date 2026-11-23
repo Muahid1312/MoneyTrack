@@ -117,6 +117,7 @@ void main() {
       MoneyFeature.reminders: 'Local reminders',
       MoneyFeature.projects: 'Projects',
       MoneyFeature.groups: 'Groups & Trips',
+      MoneyFeature.appearance:'Appearance',
       MoneyFeature.reports: 'Financial reports',
       MoneyFeature.currency: 'Reporting currency',
       MoneyFeature.backup: 'Encrypted backup & restore',
@@ -185,8 +186,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Choose a category'), findsOneWidget);
 
-    await tester.tap(find.text('Choose category'));await tester.pumpAndSettle();
-    await tester.tap(find.text('Food & Dining'));
+    await tester.tap(find.byKey(const ValueKey('quick-category-food')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Save expense'));
     await tester.pump(const Duration(milliseconds: 1500));
@@ -276,7 +276,7 @@ void main() {
   testWidgets('seeded data renders statistics without errors', (tester) async {
     await _boot(tester, seed: true);
     await tester.tap(find.widgetWithText(NavigationDestination,'Statistics'));await tester.pumpAndSettle();
-    await _scrollTo(tester,find.text('Trends and comparisons'));await tester.tap(find.text('Trends and comparisons'));
+    await tester.ensureVisible(find.text('Trends and comparisons'));await tester.pumpAndSettle();await tester.tap(find.text('Trends and comparisons'));
     await tester.pumpAndSettle();
     await _scrollTo(tester, find.text('Expense breakdown'));
     expect(find.text('Expense breakdown'), findsOneWidget);

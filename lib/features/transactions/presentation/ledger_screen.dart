@@ -5,6 +5,7 @@ import '../../../core/constants/currency.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/date_utils.dart';
 import '../../../core/utils/money.dart';
+import '../../../core/widgets/ledger_components.dart';
 import '../../../data/models/wallet.dart';
 import '../../../data/repositories/providers.dart';
 import '../../wallets/application/wallet_providers.dart';
@@ -80,13 +81,10 @@ class _LedgerState extends ConsumerState<LedgerScreen> {
               onPressed: () => select(shiftLedgerMonth(selected, -1)),
               icon: const Icon(Icons.chevron_left),
             ),
-            Flexible(
-              child: Text(
-                monthTitle,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
+            Flexible(child:TextButton(onPressed:() async {
+              final day=await chooseLedgerDate(context,selected);
+              if(mounted && day!=null)select(day);
+            },style:TextButton.styleFrom(foregroundColor:Colors.white,padding:const EdgeInsets.symmetric(horizontal:3),minimumSize:const Size(44,48)),child:Text(monthTitle,maxLines:1,overflow:TextOverflow.ellipsis,style:Theme.of(context).appBarTheme.titleTextStyle))),
             IconButton(
               tooltip: 'Next month',
               onPressed: () => select(shiftLedgerMonth(selected, 1)),
@@ -146,45 +144,7 @@ class _LedgerState extends ConsumerState<LedgerScreen> {
                 SliverToBoxAdapter(
                   child: Column(
                     children: [
-                      Row(
-                        children: [
-                          for (final v in [
-                            (false, 'Daily'),
-                            (true, 'Calendar'),
-                          ])
-                            Expanded(
-                              child: InkWell(
-                                onTap: () => setState(() => calendar = v.$1),
-                                child: Container(
-                                  alignment: Alignment.center,
-                                  constraints: const BoxConstraints(
-                                    minHeight: 48,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    border: Border(
-                                      bottom: BorderSide(
-                                        width: 2,
-                                        color: calendar == v.$1
-                                            ? Theme.of(
-                                                context,
-                                              ).colorScheme.primary
-                                            : context.palette.border,
-                                      ),
-                                    ),
-                                  ),
-                                  child: Text(
-                                    v.$2,
-                                    style: TextStyle(
-                                      fontWeight: calendar == v.$1
-                                          ? FontWeight.bold
-                                          : FontWeight.normal,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
+                      LedgerModes<bool>(options:const {true:'Calendar',false:'Daily'},selected:calendar,onChange:(v)=>setState(()=>calendar=v)),
                       LedgerTotals(
                         income: month.income,
                         expense: month.expense,
@@ -319,37 +279,11 @@ class LedgerTotals extends StatelessWidget {
   final int income, expense;
   final AppCurrency currency;
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 4),
-    child: Row(
-      children: [
-        for (final item in [
-          ('Income', income, context.palette.income),
-          ('Expenses', expense, context.palette.expense),
-          ('Net', income - expense, context.palette.textPrimary),
-        ])
-          Expanded(
-            child: Column(
-              children: [
-                Text(item.$1, style: Theme.of(context).textTheme.labelMedium),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 3),
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text(
-                      Money.format(item.$2, currency),
-                      style: Theme.of(
-                        context,
-                      ).textTheme.titleSmall?.copyWith(color: item.$3),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-      ],
-    ),
-  );
+  Widget build(BuildContext context)=>FinancialSummary([
+    (label:'Income',value:Money.format(income,currency),color:context.palette.income),
+    (label:'Expenses',value:Money.format(expense,currency),color:context.palette.expense),
+    (label:'Net',value:Money.format(income-expense,currency),color:context.palette.textPrimary)
+  ]);
 }
 
 class _Calendar extends StatelessWidget {
@@ -380,7 +314,7 @@ class _Calendar extends StatelessWidget {
               Expanded(
                 child: Center(
                   child: Text(
-                    local.narrowWeekdays[(local.firstDayOfWeekIndex + n) % 7],
+                    DateFormat.E(Localizations.localeOf(context).toString()).format(DateTime(2023,1,1+(local.firstDayOfWeekIndex+n)%7)),
                     style: Theme.of(context).textTheme.labelSmall,
                   ),
                 ),
@@ -420,28 +354,20 @@ class _Calendar extends StatelessWidget {
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: chosen ? scheme.primaryContainer : null,
+                              color: chosen ? scheme.primaryContainer : context.palette.surface,
                               border: Border.all(
-                                width: chosen || isToday ? 1 : 0.35,
-                                color: chosen || isToday
+                                width: chosen ? 1 : 0.35,
+                                color: chosen
                                     ? scheme.primary
                                     : context.palette.border,
                               ),
                             ),
                             child: Column(
                               children: [
-                                Text(
-                                  '$number',
-                                  style: Theme.of(context).textTheme.labelMedium
-                                      ?.copyWith(
-                                        fontWeight: chosen || isToday
-                                            ? FontWeight.bold
-                                            : FontWeight.normal,
-                                        decoration: isToday
-                                            ? TextDecoration.underline
-                                            : null,
-                                      ),
-                                ),
+                                Container(padding:const EdgeInsets.symmetric(horizontal:5,vertical:1),decoration:BoxDecoration(
+                                  color:chosen?scheme.primary:null,borderRadius:BorderRadius.circular(4),
+                                  border:isToday && !chosen?Border.all(color:scheme.primary):null),
+                                  child:Text('$number',style:Theme.of(context).textTheme.labelMedium?.copyWith(color:chosen?scheme.onPrimary:isToday?scheme.primary:context.palette.textPrimary,decoration:isToday?TextDecoration.underline:null,decorationColor:chosen?scheme.onPrimary:scheme.primary,fontWeight:chosen||isToday?FontWeight.bold:FontWeight.w500))),
                                 for (final val in [
                                   d?.income ?? 0,
                                   -(d?.expense ?? 0),
@@ -507,10 +433,11 @@ class _RecordRow extends ConsumerWidget {
     return Column(
       children: [
         ListTile(
+          tileColor:context.palette.surface,
           dense: true,
           visualDensity: VisualDensity.compact,
           minVerticalPadding: 5,
-          leading: Icon(t?.category.icon ?? Icons.swap_horiz, color: color),
+          leading: LedgerGlyph(t?.category.icon ?? Icons.swap_horiz, color: color),
           title: Text(t?.category.name ?? 'Transfer', maxLines: 2),
           subtitle: Text(
             t != null
