@@ -52,6 +52,7 @@ void main(){
     final snapshot=await PortableSnapshot.capture(f.database,f.store.receipts,f.prefs);
     final legacy=jsonDecode(jsonEncode(snapshot)) as Map<String,dynamic>;
     legacy['schema']=5;
+    (legacy['tables'] as Map).removeWhere((k,v)=>k.toString().startsWith('trip_'));
     legacy['tables'].remove('wallet_budgets');
     for(final goal in legacy['tables']['savings_goals']) {
       goal.remove('weekly_minor');

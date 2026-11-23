@@ -14,6 +14,7 @@ import '../budgets/presentation/wallet_budget_panel.dart';
 import '../planning/presentation/planning_screens.dart';
 import '../planning/presentation/upcoming_screen.dart';
 import '../projects/presentation/projects_screen.dart';
+import '../groups/presentation/groups_screen.dart';
 import '../reports/presentation/reports_screen.dart';
 import '../security/presentation/security_widgets.dart';
 import '../settings/presentation/settings_screen.dart';
@@ -109,6 +110,7 @@ enum MoneyFeature {
     'notification notify alarm reconcile planning',
     Icons.notifications_outlined,
   ),
+  groups('Money management','Groups & Trips','Collect contributions, track shared purchases and settle refunds.','friends picnic group expenses trip fund football futsal outing shared split reimbursements',Icons.groups_outlined),
   projects(
     'Money management',
     'Projects',
@@ -216,6 +218,7 @@ enum MoneyFeature {
       debts => const DebtsScreen(),
       upcoming => const UpcomingScreen(),
       reminders => const PlanningScreen(),
+      groups => const GroupsScreen(),
       projects => const ProjectsScreen(),
       reports => const ReportsScreen(),
       currency => const SettingsScreen(page: SettingsPage.currency),

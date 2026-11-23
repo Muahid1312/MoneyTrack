@@ -63,7 +63,7 @@ void main(){
       await old.close();
       final upgraded=await AppDatabase.open(factory:databaseFactoryFfi,path:path);
       try {
-        expect(await upgraded.db.getVersion(),6);
+        expect(await upgraded.db.getVersion(),AppDatabase.schemaVersion);
         expect(await upgraded.db.query('wallet_positions',orderBy:'id'),positions);
         expect(await upgraded.db.query('wallets',orderBy:'id'),wallets);
         expect(await upgraded.db.query('transactions',orderBy:'id'),txs);

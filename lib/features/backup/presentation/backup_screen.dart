@@ -64,7 +64,7 @@ class _BackupState extends ConsumerState<BackupScreen>{
       await AccessGuard.waitForUnlock();AccessGuard.writable();if(!context.mounted)return;
       final chosen=stage!;
       final yes=await showDialog<bool>(context:context,barrierDismissible:false,builder:(ctx)=>AlertDialog(title:const Text('Replace current financial data?'),content:SingleChildScrollView(child:Text(
-        'The backup was authenticated and validated.\n\n${chosen.counts['transactions']} transactions\n${chosen.counts['wallets']} wallets\n${chosen.counts['projects']} projects\n${chosen.counts['debts']} debts\n${chosen.counts['savings_goals']} savings goals\n${chosen.counts['attachments']} receipts\n\nThis replaces the current financial data and settings. The previous data generation is retained for rollback if replacement fails. The app will reload and require its existing PIN when configured. Device lock credentials are retained. Re-enable reminders after reviewing restored rules.')),
+        'The backup was authenticated and validated.\n\n${chosen.counts['transactions']} transactions\n${chosen.counts['wallets']} wallets\n${chosen.counts['projects']} projects\n${chosen.counts['trip_groups']} groups and trips\n${chosen.counts['trip_events']} group journal entries\n${chosen.counts['debts']} debts\n${chosen.counts['savings_goals']} savings goals\n${chosen.counts['attachments']} receipts\n\nThis replaces the current financial data and settings. The previous data generation is retained for rollback if replacement fails. The app will reload and require its existing PIN when configured. Device lock credentials are retained. Re-enable reminders after reviewing restored rules.')),
         actions:[TextButton(onPressed:()=>Navigator.pop(ctx,false),child:const Text('Cancel')),FilledButton(onPressed:()=>Navigator.pop(ctx,true),child:const Text('Replace and reload'))]));
       if(yes==true){await runtime.restore(chosen);stage=null;}
     }catch(_){if(mounted)setState(()=>_message='Restore was not completed. Check the app PIN and backup passphrase. Corrupt, incomplete or incompatible backups are rejected; the current or rollback generation is retained.');}
@@ -72,8 +72,8 @@ class _BackupState extends ConsumerState<BackupScreen>{
   }
   @override Widget build(BuildContext context)=>PopScope(canPop:!_busy,child:Scaffold(appBar:AppBar(title:const Text('Encrypted backup & restore')),body:ListView(padding:const EdgeInsets.all(24),children:[
     ListTile(contentPadding:EdgeInsets.zero,leading:const Icon(Icons.history),title:const Text('Last backup shared on this device'),subtitle:Text(_lastShared())),
-    const Text('Portable backups include financial records, receipts and app preferences. AES-256-GCM encryption uses a separate passphrase. Device PIN verifiers, biometric keys and platform permissions are never exported.'),
-    const Text('All receipts must be present. Portable backups are limited to 32 MiB, including up to 16 MiB of receipt content. No unencrypted backup is produced.'),
+    const Text('Portable backups include personal records, group funds, refund plans, photos, receipts and app preferences. AES-256-GCM encryption uses a separate passphrase. Device PIN verifiers, biometric keys and platform permissions are never exported.'),
+    const Text('All receipts must be present. Portable backups are limited to 32 MiB, including up to 16 MiB of personal receipt content. No unencrypted backup is produced.'),
     const SizedBox(height:20),Text('Create encrypted backup',style:Theme.of(context).textTheme.titleLarge),
     TextField(controller:_exportPass,obscureText:true,autocorrect:false,enableSuggestions:false,decoration:const InputDecoration(labelText:'Backup passphrase (at least 12 characters)')),
     TextField(controller:_confirm,obscureText:true,autocorrect:false,enableSuggestions:false,decoration:const InputDecoration(labelText:'Confirm backup passphrase')),

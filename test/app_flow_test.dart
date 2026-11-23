@@ -116,6 +116,7 @@ void main() {
       MoneyFeature.upcoming: 'Upcoming payments',
       MoneyFeature.reminders: 'Local reminders',
       MoneyFeature.projects: 'Projects',
+      MoneyFeature.groups: 'Groups & Trips',
       MoneyFeature.reports: 'Financial reports',
       MoneyFeature.currency: 'Reporting currency',
       MoneyFeature.backup: 'Encrypted backup & restore',

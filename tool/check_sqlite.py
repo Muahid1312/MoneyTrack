@@ -10,7 +10,7 @@ DB_SOURCE = (ROOT / 'lib/data/database/app_database.dart').read_text()
 LEGACY = re.search(r"_createLegacy\(Database db\) => db.execute\('\'\'(.*?)'\'\'\);", DB_SOURCE, re.S).group(1)
 V2 = DB_SOURCE[DB_SOURCE.index('static Future<void> _upgradeV2'):]
 MIGRATIONS = [V2] + [(ROOT / ('lib/data/database/' + name)).read_text() for name in
-    ['project_migration.dart', 'planning_migration.dart', 'documents_migration.dart', 'personal_finance_migration.dart']]
+    ['project_migration.dart', 'planning_migration.dart', 'documents_migration.dart', 'personal_finance_migration.dart', 'group_migration.dart']]
 
 
 def execute(db, source):
@@ -37,7 +37,7 @@ def fresh():
 
 
 # Upgrade fixtures from every prior schema version. Preserve a populated ledger.
-for old in [1, 2, 3, 4, 5]:
+for old in range(1, 7):
     db = sqlite3.connect(':memory:')
     db.execute('PRAGMA foreign_keys=ON')
     db.execute(LEGACY)
@@ -57,7 +57,7 @@ for old in [1, 2, 3, 4, 5]:
     db.execute('BEGIN')
     for migration in MIGRATIONS[old - 1:]:
         execute(db, migration)
-    db.execute('PRAGMA user_version=6')
+    db.execute('PRAGMA user_version=7')
     db.commit()
     assert db.execute('SELECT id,amount_minor,note FROM transactions').fetchall() == [(17, 700, 'Keep me')]
     assert db.execute('SELECT balance FROM wallet_positions WHERE id=1').fetchone() == (700,)
@@ -69,7 +69,7 @@ for old in [1, 2, 3, 4, 5]:
         assert db.execute('SELECT id,emergency,weekly_minor FROM savings_goals').fetchall() == [(7,0,0)]
         assert db.execute('SELECT id,delta_minor FROM savings_events').fetchall() == [(31,500000)]
     db.close()
-print('PASS: populated schema 1/2/3/4/5 → 6 SQL upgrade fixtures.')
+print('PASS: populated schema 1/2/3/4/5/6 → 7 SQL upgrade fixtures.')
 
 db = fresh()
 checks=0
