@@ -146,16 +146,19 @@ class LedgerModes<T> extends StatelessWidget {
                         ),
                       ),
                     ),
-                    child: Text(
-                      entry.value,
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: entry.key == selected
-                            ? primary
-                            : p.textSecondary,
-                        fontWeight: entry.key == selected
-                            ? FontWeight.w700
-                            : FontWeight.w500,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        entry.value,
+                        maxLines: 1,
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: entry.key == selected
+                              ? primary
+                              : p.textSecondary,
+                          fontWeight: entry.key == selected
+                              ? FontWeight.w700
+                              : FontWeight.w500,
+                        ),
                       ),
                     ),
                   ),

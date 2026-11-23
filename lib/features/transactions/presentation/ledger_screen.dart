@@ -97,7 +97,9 @@ class _LedgerState extends ConsumerState<LedgerScreen> {
     final future = addDate.isAfter(today);
     final monthTitle = annual
         ? DateFormat.y().format(selected)
-        : DateFormat('MMMM y').format(selected);
+        : (MediaQuery.sizeOf(context).width < 380
+              ? DateFormat.yMMM()
+              : DateFormat.yMMMM()).format(selected);
     return Scaffold(
       appBar: AppBar(
         titleSpacing: 0,
@@ -119,11 +121,13 @@ class _LedgerState extends ConsumerState<LedgerScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 3),
                   minimumSize: const Size(44, 48),
                 ),
-                child: Text(
-                  monthTitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).appBarTheme.titleTextStyle,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    monthTitle,
+                    maxLines: 1,
+                    style: Theme.of(context).appBarTheme.titleTextStyle,
+                  ),
                 ),
               ),
             ),

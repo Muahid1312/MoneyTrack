@@ -149,6 +149,13 @@ void main() {
       expect(find.textContaining('Tea and bread'), findsOneWidget);
       expect(find.textContaining('Previous evening'), findsNothing);
       await capture('calendar');
+      tester.view.physicalSize = const Size(320, 640);
+      await tester.pumpAndSettle();
+      expect(find.text('Feb 2024'), findsOneWidget);
+      expect(tester.widget<Text>(find.text('Calendar')).maxLines, 1);
+      await capture('calendar-narrow');
+      tester.view.physicalSize = const Size(390, 780);
+      await tester.pumpAndSettle();
       await tester.tap(find.text('February 2024'));await tester.pumpAndSettle();
       expect(find.byType(DatePickerDialog),findsOneWidget);await tester.tap(find.text('Cancel'));await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(InkWell, 'Daily').first);
