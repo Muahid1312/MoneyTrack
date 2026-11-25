@@ -1,3 +1,6 @@
+import 'package:flutter_localizations/flutter_localizations.dart';
+import '../../../core/theme/app_accent.dart';
+import '../../../data/models/app_settings.dart';
 import 'dart:async';
 import '../../../core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -5,8 +8,9 @@ import 'package:flutter/services.dart';
 import '../application/security_service.dart';
 
 class AppLockGate extends StatefulWidget {
-  const AppLockGate({super.key,required this.security,required this.builder});
+  const AppLockGate({super.key,required this.security,required this.builder,this.appearance});
   final SecurityController security;final Widget Function() builder;
+  final ({Color accent, ThemeMode mode, Locale locale}) Function()? appearance;
   @override State<AppLockGate> createState()=>_GateState();
 }
 class _GateState extends State<AppLockGate> with WidgetsBindingObserver {
@@ -27,9 +31,18 @@ class _GateState extends State<AppLockGate> with WidgetsBindingObserver {
       try {await PlatformSecureStore.channel.invokeMethod('privacyReady');} on PlatformException {} on MissingPluginException {}
     });
     if(security.ready && !security.locked)_created=true;
+    final appearance = widget.appearance?.call() ??
+      (accent: AppAccent.emerald, mode: ThemeMode.system, locale: const Locale('en'));
     return Stack(textDirection:TextDirection.ltr,children:[
       if(_created)Offstage(offstage:security.locked||_covered,child:widget.builder()),
-      if(!_created || security.locked)MaterialApp(debugShowCheckedModeBanner:false,theme:AppTheme.light(),darkTheme:AppTheme.dark(),home:_UnlockScreen(security:security)),
+      if(!_created || security.locked)MaterialApp(
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.light(appearance.accent), darkTheme: AppTheme.dark(appearance.accent),
+        themeMode: appearance.mode, locale: appearance.locale,
+        supportedLocales: [for (final choice in AppLanguageChoice.values) choice.locale],
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        home: _UnlockScreen(security: security),
+      ),
       if(_covered)const Positioned.fill(child:ColoredBox(color:Color(0xFF0B1512))),
     ]);
   }

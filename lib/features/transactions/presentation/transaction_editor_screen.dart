@@ -1,3 +1,7 @@
+import '../../../core/utils/app_language.dart';
+import 'widgets/amount_keypad.dart';
+import '../../../core/theme/app_accent.dart';
+import '../../../core/theme/app_typography.dart';
 import 'package:intl/intl.dart' show DateFormat;
 import '../../documents/presentation/attachments_screen.dart';
 import '../../planning/presentation/planning_forms.dart';
@@ -570,7 +574,8 @@ class _TransactionEditorScreenState
         ).textTheme.titleMedium?.copyWith(color: palette.textPrimary),
         leading: const BackButton(),
         title: Text(
-          _isEdit ? 'Edit transaction' : 'Add ${_type.label.toLowerCase()}',
+          _isEdit ? context.tr('Edit transaction', 'ویرایش معامله') : _type.isIncome
+              ? context.tr('Add income', 'افزودن عاید') : context.tr('Add expense', 'افزودن مصرف'),
         ),
         actions: [
           if (!_isEdit)
@@ -625,26 +630,20 @@ class _TransactionEditorScreenState
                                 minimumSize: const Size(0, 34),
                                 tapTargetSize: MaterialTapTargetSize.padded,
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(4),
+                                  borderRadius: BorderRadius.circular(14),
                                 ),
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 2,
                                 ),
                                 foregroundColor: _type.label == label
-                                    ? (_type.isIncome
-                                          ? context.palette.income
-                                          : context.palette.expense)
+                                    ? context.accent.onSurface
                                     : scheme.onSurface,
                                 backgroundColor: _type.label == label
-                                    ? (_type.isIncome
-                                          ? context.palette.incomeSoft
-                                          : context.palette.expenseSoft)
+                                    ? context.accent.surface
                                     : null,
                                 side: BorderSide(
                                   color: _type.label == label
-                                      ? (_type.isIncome
-                                            ? context.palette.income
-                                            : context.palette.expense)
+                                      ? context.accent.primary
                                       : scheme.outline,
                                 ),
                               ),
@@ -657,14 +656,95 @@ class _TransactionEditorScreenState
                                                 ? TransactionType.income
                                                 : TransactionType.expense,
                                           ),
-                              child: Text(label),
+                              child: Text(switch (label) {
+                                'Income' => context.tr('Income', 'عاید'),
+                                'Expense' => context.tr('Expense', 'مصرف'),
+                                _ => context.tr('Transfer', 'انتقال'),
+                              }),
                             ),
                           ),
                         ),
                     ],
                   ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _amountText,
+                    enabled: !_saving,
+                    key: const ValueKey('entry-amount'),
+                    keyboardType: TextInputType.none,
+                    textAlign: TextAlign.center,
+                    style: AppTypography.amount(39, color: palette.textPrimary),
+                    decoration: InputDecoration(
+                      labelText: '${context.tr('Amount', 'مبلغ')} (${_currency.code})',
+                      hintText: '0',
+                      hintStyle: AppTypography.amount(39, color: palette.textSecondary),
+                      floatingLabelAlignment: FloatingLabelAlignment.center,
+                      floatingLabelBehavior: FloatingLabelBehavior.always,
+                      fillColor: context.accent.surface,
+                    ),
+                    onChanged: (v) => setState(() {
+                      final raw = v.trim();
+                      _amount = AmountInput(
+                        Money.parseMinor(raw, _currency) == null ? raw : raw.replaceAll(',', ''),
+                        _currency,
+                      );
+                      _error = null;
+                    }),
+                  ),
+                  const SizedBox(height: 8),
                   _EntryRow(
-                    'Date',
+                    context.tr('Category', 'دسته'),
+                    TextButton(
+                      style: fieldButton,
+                      onPressed: _saving ? null : _chooseCategory,
+                      child: Text(
+                        _categoryId == null
+                            ? context.tr('Choose category', 'انتخاب دسته')
+                            : Categories.byId(_categoryId!).name,
+                      ),
+                    ),
+                  ),
+                  if (!_showAccounts && !_isEdit)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Wrap(
+                        spacing: 6,
+                        children: [
+                          for (final cat in orderedCategories.take(3))
+                            ChoiceChip(
+                              key: ValueKey('quick-category-${cat.id}'),
+                              avatar: Icon(cat.icon, size: 16),
+                              label: Text(cat.name),
+                              selected: _categoryId == cat.id,
+                              onSelected: _saving
+                                  ? null
+                                  : (_) => setState(() {
+                                      _categoryId = cat.id;
+                                      _error = null;
+                                    }),
+                            ),
+                        ],
+                      ),
+                    ),
+                  _EntryRow(
+                    context.tr('Note', 'یادداشت'),
+                    TextField(
+                      key: const ValueKey('entry-note'),
+                      controller: _noteText,
+                      enabled: !_saving,
+                      maxLength: 240,
+                      decoration: const InputDecoration(
+                        hintText: 'Optional',
+                        filled: false,
+                        contentPadding: EdgeInsets.zero,
+                        enabledBorder: InputBorder.none,
+                        counterText: '',
+                      ),
+                      onChanged: (v) => _note = v.trim(),
+                    ),
+                  ),
+                  _EntryRow(
+                    context.tr('Date', 'تاریخ'),
                     TextButton(
                       style: fieldButton,
                       onPressed: _saving ? null : _pickDate,
@@ -672,7 +752,7 @@ class _TransactionEditorScreenState
                     ),
                   ),
                   _EntryRow(
-                    'Account',
+                    context.tr('Account', 'حساب'),
                     state.hasError
                         ? TextButton(
                             onPressed: () => ref.invalidate(walletsProvider),
@@ -710,59 +790,21 @@ class _TransactionEditorScreenState
                             ),
                           ),
                   ),
-                  _EntryRow(
-                    'Category',
-                    TextButton(
-                      style: fieldButton,
-                      onPressed: _saving ? null : _chooseCategory,
-                      child: Text(
-                        _categoryId == null
-                            ? 'Choose category'
-                            : Categories.byId(_categoryId!).name,
-                      ),
-                    ),
-                  ),
-                  _EntryRow(
-                    'Amount',
-                    TextField(
-                      controller: _amountText,
+                  if (!_showAccounts) ...[
+                    const SizedBox(height: 8),
+                    AmountKeypad(
+                      allowDecimal: _currency.decimalDigits > 0,
                       enabled: !_saving,
-                      key: const ValueKey('entry-amount'),
-                      keyboardType: TextInputType.numberWithOptions(
-                        decimal: _currency.decimalDigits > 0,
-                      ),
-                      decoration: InputDecoration(
-                        hintText: '0',
-                        filled: false,
-                        contentPadding: EdgeInsets.zero,
-                        enabledBorder: InputBorder.none,
-                        suffixText: _currency.code,
-                      ),
-                      onChanged: (v) {
+                      onKey: (key) {
+                        FocusManager.instance.primaryFocus?.unfocus();
                         setState(() {
-                          _amount = AmountInput(v.trim(), _currency);
+                          _amount = applyAmountKey(_amount, key);
+                          _amountText.text = _amount.isEmpty ? '' : _amount.display;
                           _error = null;
                         });
                       },
                     ),
-                  ),
-                  _EntryRow(
-                    'Note',
-                    TextField(
-                      key: const ValueKey('entry-note'),
-                      controller: _noteText,
-                      enabled: !_saving,
-                      maxLength: 240,
-                      decoration: const InputDecoration(
-                        hintText: 'Optional',
-                        filled: false,
-                        contentPadding: EdgeInsets.zero,
-                        enabledBorder: InputBorder.none,
-                        counterText: '',
-                      ),
-                      onChanged: (v) => _note = v.trim(),
-                    ),
-                  ),
+                  ],
                   if (_showAccounts) ...[
                     ColoredBox(
                       color: palette.surfaceMuted,
@@ -805,7 +847,7 @@ class _TransactionEditorScreenState
                                     ),
                                     shape: const RoundedRectangleBorder(),
                                     backgroundColor: wallet.id == _walletId
-                                        ? palette.surfaceMuted
+                                        ? context.accent.surface
                                         : palette.surface,
                                     foregroundColor: palette.textPrimary,
                                     side: BorderSide(color: palette.border),
@@ -824,29 +866,8 @@ class _TransactionEditorScreenState
                       },
                     ),
                   ],
-                  if (!_showAccounts && !_isEdit && _categoryId == null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 6),
-                      child: Wrap(
-                        spacing: 6,
-                        children: [
-                          for (final cat in orderedCategories.take(3))
-                            ActionChip(
-                              key: ValueKey('quick-category-${cat.id}'),
-                              avatar: Icon(cat.icon, size: 16),
-                              label: Text(cat.name),
-                              onPressed: _saving
-                                  ? null
-                                  : () => setState(() {
-                                      _categoryId = cat.id;
-                                      _error = null;
-                                    }),
-                            ),
-                        ],
-                      ),
-                    ),
                   ExpansionTile(
-                    title: const Text('More details'),
+                    title: Text(context.tr('More details', 'جزئیات بیشتر')),
                     initiallyExpanded: _project.projectId != null,
                     children: [
                       if (ref.watch(projectRepositoryProvider) != null)
@@ -883,7 +904,7 @@ class _TransactionEditorScreenState
                         ),
                       if (!_isEdit)
                         CheckboxListTile(
-                          title: const Text('Add a receipt after saving'),
+                          title: Text(context.tr('Add a receipt after saving', 'افزودن رسید پس از ذخیره')),
                           value: _addReceipt,
                           onChanged: _saving
                               ? null
@@ -913,7 +934,8 @@ class _TransactionEditorScreenState
                         ? 'Saving…'
                         : _isEdit
                         ? 'Save changes'
-                        : 'Save ${_type.label.toLowerCase()}',
+                        : _type.isIncome ? context.tr('Save income', 'ذخیرهٔ عاید')
+                          : context.tr('Save expense', 'ذخیرهٔ مصرف'),
                   ),
                 ),
               ),

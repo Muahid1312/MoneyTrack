@@ -1,3 +1,5 @@
+import 'package:moneytrack/features/managed_funds/application/managed_fund_report.dart';
+import 'package:moneytrack/features/reports/application/report_exporter.dart';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -549,6 +551,45 @@ void main() {
       } finally {
         await copy.close();
         await fixture.store.discard(stage.id);
+      }
+    },
+  );
+  test(
+    'managed activity exports the exact item ledger in English and Dari',
+    () async {
+      final fund = await repo.create(
+        key: key(),
+        name: 'مواد غذایی',
+        provider: 'پدر',
+        currency: AppCurrency.afn,
+        initialMinor: 1000000,
+        date: date,
+        method: 'Cash',
+      );
+      await repo.purchase(
+        fund,
+        key: key(),
+        date: date,
+        method: 'Cash',
+        cash: 180000,
+        items: [
+          PurchaseLine(
+            name: 'برنج',
+            quantityMilli: 25000,
+            unit: 'کیلو',
+            unitMinor: 7200,
+          ),
+        ],
+      );
+      final detail = await repo.get(fund);
+      for (final dari in [false, true]) {
+        final report = managedFundReport(detail, dari: dari);
+        expect(report.rightToLeft, dari);
+        expect(report.scope, contains('8200.00 AFN'));
+        expect(report.rows.last, contains('1800.00 AFN'));
+        expect(ReportExporter.csv(report), contains('برنج'));
+        final pdf = await ReportExporter.pdf(report);
+        expect(ascii.decode(pdf.take(5).toList()), '%PDF-');
       }
     },
   );

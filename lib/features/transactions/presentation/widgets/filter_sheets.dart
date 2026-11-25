@@ -1,3 +1,4 @@
+import '../../../../core/theme/app_accent.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/constants/categories.dart';
@@ -168,7 +169,7 @@ Future<TransactionFilter?> showDateFilterSheet(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   decoration: BoxDecoration(
                     color: d == current.date
-                        ? AppColors.primary.withValues(alpha: ctx.isDark ? 0.14 : 0.08)
+                        ? ctx.accent.surface
                         : Colors.transparent,
                     borderRadius: BorderRadius.circular(16),
                   ),
@@ -191,8 +192,8 @@ Future<TransactionFilter?> showDateFilterSheet(
                         ),
                       ),
                       if (d == current.date)
-                        const Icon(Icons.check_circle_rounded,
-                            color: AppColors.primary, size: 22),
+                        Icon(Icons.check_circle_rounded,
+                            color: ctx.accent.primary, size: 22),
                     ],
                   ),
                 ),

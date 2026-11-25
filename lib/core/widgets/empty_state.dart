@@ -1,3 +1,4 @@
+import '../theme/app_accent.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
@@ -27,7 +28,7 @@ class EmptyState extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = context.palette;
     final t = Theme.of(context).textTheme;
-    final size = compact ? 88.0 : 120.0;
+    final size = compact ? 48.0 : 64.0;
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),
       duration: AppDurations.slow,
@@ -42,46 +43,10 @@ class EmptyState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            SizedBox(
-              width: size,
-              height: size,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Container(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: RadialGradient(colors: [
-                        AppColors.emerald.withValues(alpha: 0.16),
-                        AppColors.emerald.withValues(alpha: 0.0),
-                      ]),
-                    ),
-                  ),
-                  Container(
-                    width: size * 0.72,
-                    height: size * 0.72,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: p.border),
-                      color: p.surface,
-                    ),
-                  ),
-                  Container(
-                    width: size * 0.48,
-                    height: size * 0.48,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: AppColors.emerald.withValues(alpha: context.isDark ? 0.18 : 0.12),
-                    ),
-                    child: Icon(icon,
-                        size: size * 0.24,
-                        color: context.isDark
-                            ? AppColors.emeraldBright
-                            : AppColors.emeraldDeep),
-                  ),
-                ],
-              ),
-            ),
+            SizedBox.square(dimension: size, child: DecoratedBox(
+              decoration: BoxDecoration(color: context.accent.surface, borderRadius: AppRadii.hero),
+              child: Icon(icon, size: size * .46, color: context.accent.onSurface),
+            )),
             SizedBox(height: compact ? AppSpacing.md : AppSpacing.xl),
             Text(title,
                 textAlign: TextAlign.center,

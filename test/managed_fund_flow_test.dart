@@ -1,3 +1,4 @@
+import 'support/screen_capture.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -36,18 +37,24 @@ void main() {
         await fixture.close();
       });
 
+      final captureKey = GlobalKey();
+      await loadCaptureFonts(tester);
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: MaterialApp(
-            theme: AppTheme.dark(),
-            builder: (context, child) => MediaQuery(
-              data: MediaQuery.of(
-                context,
-              ).copyWith(textScaler: const TextScaler.linear(1.25)),
-              child: child!,
+          child: RepaintBoundary(
+            key: captureKey,
+            child: MaterialApp(
+              debugShowCheckedModeBanner: false,
+              theme: AppTheme.dark(),
+              builder: (context, child) => MediaQuery(
+                data: MediaQuery.of(
+                  context,
+                ).copyWith(textScaler: const TextScaler.linear(1.25)),
+                child: child!,
+              ),
+              home: const ManagedFundsScreen(),
             ),
-            home: const ManagedFundsScreen(),
           ),
         ),
       );
@@ -107,6 +114,7 @@ void main() {
       await enter('Initial received amount (AFN)', '۵۰۰');
       await tap('Create fund');
       await waitFor('Available entrusted cash');
+      await captureView(tester, captureKey, 'managed-fund');
       await tap('Add purchase');
       await enter('Product or expense name', 'Flour');
       await tap('Use quantity and unit price');
@@ -129,7 +137,10 @@ void main() {
         await tester.pump(const Duration(milliseconds: 100));
       }
       expect(find.text('Save purchase'), findsNothing);
-      await waitFor('800.00 ؋');
+      await tester.runAsync(() async {
+        expect((await repo.get(1)).ledger.expenses, 80000);
+      });
+      await tester.pumpAndSettle();
       await tap('Flour', record: true);
       await tap('Reimburse advance');
       await enter('Amount (AFN)', '300');

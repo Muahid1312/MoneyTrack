@@ -1,6 +1,10 @@
+import '../../../core/utils/app_language.dart';
+import '../../../core/widgets/finance_hero.dart';
+import '../../../core/utils/amount_input.dart';
+import '../../../core/theme/app_typography.dart';
+import '../../transactions/presentation/widgets/amount_keypad.dart';
 import 'package:flutter/material.dart';
 import '../../../core/widgets/ledger_components.dart';
-import '../../../core/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/currency.dart';
@@ -19,14 +23,14 @@ class WalletsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final data = ref.watch(walletsProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Accounts'), actions: [
+      appBar: AppBar(title: Text(context.tr('Accounts', 'حساب‌ها')), actions: [
         IconButton(tooltip: 'Transfer money', icon: const Icon(Icons.swap_horiz),
           onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
             builder: (_) => const TransferScreen()))),
       ]),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _edit(context), icon: const Icon(Icons.add),
-        label: const Text('New wallet')),
+        label: Text(context.tr('New wallet', 'حساب جدید'))),
       body: data.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => _Failure(onRetry: () => ref.invalidate(walletsProvider)),
@@ -37,11 +41,11 @@ class WalletsScreen extends ConsumerWidget {
             if(snapshot.wallets.isEmpty)const ListTile(title:Text('Create your first wallet to start tracking.')),
             for(final e in currencies.entries) ...[
               Padding(padding:const EdgeInsets.symmetric(vertical:8),child:Text('${e.key.name} · ${e.key.code}',style:Theme.of(context).textTheme.titleMedium)),
-              FinancialSummary([
-                (label:'Cash',value:Money.format(e.value,e.key),color:null),
-                (label:'Reserved',value:Money.format(snapshot.wallets.where((w)=>w.currency==e.key).fold<int>(0,(n,w)=>n+(snapshot.reserved[w.id]??0)),e.key),color:null),
-                (label:'Available',value:Money.format(snapshot.wallets.where((w)=>w.currency==e.key).fold<int>(0,(n,w)=>n+snapshot.available(w.id!)),e.key),color:context.palette.textPrimary)
+              FinanceHero(label: 'Total personal balance · ${e.key.code}', amount: Money.format(e.value,e.key), details: [
+                (label:'Reserved',value:Money.format(snapshot.wallets.where((w)=>w.currency==e.key).fold<int>(0,(n,w)=>n+(snapshot.reserved[w.id]??0)),e.key)),
+                (label:'Available',value:Money.format(snapshot.wallets.where((w)=>w.currency==e.key).fold<int>(0,(n,w)=>n+snapshot.available(w.id!)),e.key))
               ]),
+              const SizedBox(height: 8),
               for(final w in snapshot.wallets.where((w)=>w.currency==e.key))
                 _AccountRow(wallet:w,snapshot:snapshot),
             ]
@@ -69,9 +73,9 @@ class _AccountRow extends StatelessWidget{
     ]);
     final amount = Column(crossAxisAlignment: narrow ? CrossAxisAlignment.start : CrossAxisAlignment.end, children: [
       Text(Money.format(snapshot.available(id),c), style: t.titleSmall),
-      Text('Available', style: t.labelSmall),
+      Text(context.tr('Available', 'قابل مصرف'), style: t.labelSmall),
     ]);
-    return Material(color: context.palette.surface, child: InkWell(
+    return Card(clipBehavior: Clip.antiAlias, child: InkWell(
       onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => WalletDetailsScreen(walletId: id))),
       child: Column(children: [
         Padding(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10), child: Row(children: [
@@ -83,7 +87,6 @@ class _AccountRow extends StatelessWidget{
         ])),
         if (reserved != 0) Padding(padding: const EdgeInsets.fromLTRB(12,0,12,8), child: Align(alignment: AlignmentDirectional.centerEnd,
           child: Text('Cash ${Money.format(snapshot.balances[id]!,c)} · Reserved ${Money.format(reserved,c)}', style: t.bodySmall))),
-        const Divider(),
       ]),
     ));
   }
@@ -201,15 +204,26 @@ class WalletDetailsScreen extends ConsumerWidget {
         final transfers = snapshot!.transfers.where((t) => t.sourceId == walletId || t.destinationId == walletId);
         return Scaffold(
           appBar: AppBar(title: Text(wallet.name), actions: [
+            IconButton(
+              tooltip: 'Reconcile balance', icon: const Icon(Icons.calculate_outlined),
+              onPressed: () => showModalBottomSheet<void>(
+                context: context, isScrollControlled: true, useSafeArea: true,
+                builder: (_) => _CountWalletSheet(wallet, snapshot.balances[walletId]!),
+              ),
+            ),
             IconButton(tooltip: 'Edit wallet', icon: const Icon(Icons.edit_outlined),
               onPressed: () => WalletsScreen._edit(context, wallet)),
           ]),
           body: ListView(padding: const EdgeInsets.all(24), children: [
-            Text(Money.format(snapshot.balances[walletId]!, wallet.currency),
-              style: Theme.of(context).textTheme.headlineLarge),
-            Text('${wallet.currency.code} · ${wallet.type.label}${wallet.archived ? ' · Archived' : ''}'),
-            Text('Available: ${Money.format(snapshot.available(walletId), wallet.currency)}'),
-            Text('Reserved savings: ${Money.format(snapshot.reserved[walletId] ?? 0, wallet.currency)}'),
+            FinanceHero(
+              label: '${wallet.currency.code} · ${wallet.type.label}${wallet.archived ? ' · Archived' : ''}',
+              amount: Money.format(snapshot.balances[walletId]!, wallet.currency),
+              details: [
+                (label: context.tr('Available', 'قابل مصرف'), value: Money.format(snapshot.available(walletId), wallet.currency)),
+                (label: context.tr('Reserved savings', 'پس‌انداز محفوظ'), value: Money.format(snapshot.reserved[walletId] ?? 0, wallet.currency)),
+              ],
+            ),
+            const SizedBox(height: 12),
             const Text('Reserved savings remain part of this wallet balance.'),
             Text('Opening balance: ${Money.format(wallet.openingMinor, wallet.currency)}'),
             const SizedBox(height: 24),
@@ -280,7 +294,7 @@ class _TransferState extends ConsumerState<TransferScreen> {
   @override
   Widget build(BuildContext context) {
     final data = ref.watch(walletsProvider);
-    return Scaffold(appBar: AppBar(title: const Text('Transfer money')),
+    return Scaffold(appBar: AppBar(title: Text(context.tr('Transfer money', 'انتقال پول'))),
       body: data.when(loading: () => const Center(child: CircularProgressIndicator()),
         error: (_, _) => _Failure(onRetry: () => ref.invalidate(walletsProvider)),
         data: (snapshot) {
@@ -298,7 +312,8 @@ class _TransferState extends ConsumerState<TransferScreen> {
                   .convert(minor, source.currency, destination.currency), destination.currency);
             } catch (_) { /* Incomplete inputs are validated on submit. */ }
           }
-          return ListView(padding: const EdgeInsets.all(24), children: [
+          return Column(children: [
+            Expanded(child: ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 12), children: [
             ListTile(contentPadding:EdgeInsets.zero,leading:const Icon(Icons.calendar_today_outlined),title:Text(MaterialLocalizations.of(context).formatMediumDate(_date)),subtitle:const Text('Transfer date'),onTap:_saving?null:()async{
               final picked=await showDatePicker(context:context,initialDate:_date,firstDate:DateTime(_date.year<2000?_date.year:2000),lastDate:DateTime.now());
               if(picked!=null && mounted)setState(()=>_date=DateTime(picked.year,picked.month,picked.day,_date.hour,_date.minute));
@@ -313,8 +328,9 @@ class _TransferState extends ConsumerState<TransferScreen> {
                   if (isSource) { _source = v; _amount.clear(); } else { _destination = v; }
                   _rate.clear(); _error = null;
                 }))),
-            TextField(controller: _amount, onChanged: (_) => setState(() {}),
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            TextField(controller: _amount, enabled: !_saving, onChanged: (_) => setState(() {}),
+              keyboardType: TextInputType.none,
+              style: AppTypography.amount(30), textAlign: TextAlign.center,
               decoration: InputDecoration(labelText: 'Send amount ${source?.currency.code ?? ''}')),
             if (!same) TextField(controller: _rate, onChanged: (_) => setState(() {}),
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -322,9 +338,31 @@ class _TransferState extends ConsumerState<TransferScreen> {
                 helperText: '1 ${source?.currency.code ?? 'source'} = rate ${destination?.currency.code ?? 'destination'}\nNo rate is fetched or assumed. Up to 12 decimal places.', helperMaxLines: 3)),
             if (same) const Padding(padding: EdgeInsets.symmetric(vertical: 16), child: Text('Same currency · rate 1')),
             if (preview != null) Padding(padding: const EdgeInsets.symmetric(vertical: 20), child: Text('Destination receives $preview\nRounded half up to destination precision.')),
+            if (source != null) ...[
+              const SizedBox(height: 10),
+              AmountKeypad(
+                allowDecimal: source.currency.decimalDigits > 0, enabled: !_saving,
+                onKey: (key) {
+                  FocusManager.instance.primaryFocus?.unfocus();
+                  setState(() {
+                    final raw = _amount.text.trim();
+                    final next = applyAmountKey(AmountInput(
+                      Money.parseMinor(raw, source.currency) == null ? raw : raw.replaceAll(',', ''),
+                      source.currency,
+                    ), key);
+                    _amount.text = next.isEmpty ? '' : next.display;
+                    _error = null;
+                  });
+                },
+              ),
+              const SizedBox(height: 12),
+            ],
             TextField(controller: _note, maxLength: 240, decoration: const InputDecoration(labelText: 'Note (optional)')),
-            if (_error != null) Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
-            const SizedBox(height: 24),
+            ])),
+            SafeArea(top: false, minimum: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                if (_error != null) Semantics(liveRegion: true, child: Text(_error!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error))),
             FilledButton(onPressed: _saving ? null : () async {
               if (source == null || destination == null || source.id == destination.id) {
                 setState(() => _error = 'Choose two different wallets'); return;
@@ -346,9 +384,81 @@ class _TransferState extends ConsumerState<TransferScreen> {
                 if (mounted) setState(() { _saving = false; _error = e is FormatException || e is ArgumentError
                   ? e.toString() : 'Could not save transfer. Please try again.'; });
               }
-            }, child: Text(_saving ? 'Saving…' : 'Confirm transfer')),
+            }, child: Text(_saving ? 'Saving…' : context.tr('Confirm transfer', 'تأیید انتقال'))),
+              ]),
+            ),
           ]);
         }),
+    );
+  }
+}
+
+
+class _CountWalletSheet extends StatefulWidget {
+  const _CountWalletSheet(this.wallet, this.recorded);
+  final Wallet wallet;
+  final int recorded;
+
+  @override
+  State<_CountWalletSheet> createState() => _CountWalletSheetState();
+}
+
+class _CountWalletSheetState extends State<_CountWalletSheet> {
+  final _counted = TextEditingController();
+  int? _compared;
+  bool _invalid = false;
+
+  @override
+  void dispose() {
+    _counted.dispose();
+    super.dispose();
+  }
+
+  void _compare() {
+    final raw = _counted.text.trim();
+    final negative = raw.startsWith('-');
+    final minor = Money.parseMinor(negative ? raw.substring(1) : raw, widget.wallet.currency);
+    setState(() {
+      _invalid = minor == null;
+      _compared = minor == null ? null : negative ? -minor : minor;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final currency = widget.wallet.currency;
+    final difference = _compared == null ? null : _compared! - widget.recorded;
+    final t = Theme.of(context).textTheme;
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: EdgeInsets.fromLTRB(20, 18, 20, 20 + MediaQuery.viewInsetsOf(context).bottom),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Text('Reconcile balance', style: t.titleLarge),
+          const SizedBox(height: 8),
+          Text('${widget.wallet.name} · ${currency.code}'),
+          Text('Recorded cash: ${Money.format(widget.recorded, currency)}'),
+          const SizedBox(height: 14),
+          TextField(
+            controller: _counted,
+            keyboardType: TextInputType.numberWithOptions(decimal: currency.decimalDigits > 0, signed: true),
+            decoration: InputDecoration(
+              labelText: 'Counted balance (${currency.code})',
+              errorText: _invalid ? 'Enter a valid balance.' : null,
+            ),
+            onChanged: (_) => setState(() { _compared = null; _invalid = false; }),
+            onSubmitted: (_) => _compare(),
+          ),
+          const SizedBox(height: 12),
+          FilledButton(onPressed: _compare, child: const Text('Compare')),
+          if (difference != null) ...[
+            const SizedBox(height: 12),
+            Semantics(liveRegion: true, child: Text(difference == 0 ? 'Balances match' :
+              'Difference: ${Money.format(difference, currency, signed: true)}', style: t.titleMedium)),
+            if (difference != 0)
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Review wallet history')),
+          ],
+        ]),
+      ),
     );
   }
 }

@@ -1,3 +1,5 @@
+import '../../../core/utils/app_language.dart';
+import '../../../core/widgets/app_card.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -93,14 +95,74 @@ class ReportPreviewScreen extends StatefulWidget {
 }
 class _PreviewState extends State<ReportPreviewScreen>{
   bool _busy=false;String? _message;
-  Future<void> _export(bool pdf,{bool preview=false}) async {if(_busy)return;setState(()=>_busy=true);
-    try {final file=await ReportExporter.write(widget.document,pdf);if(!context.mounted)return;if(preview)await DocumentBridge.open(file);else await ReportExporter.share(file,origin:Rect.fromLTWH(MediaQuery.sizeOf(context).width/2,MediaQuery.sizeOf(context).height/2,1,1));}
-    catch (error){if(mounted)setState(()=>_message=error is UnsupportedError?'The PDF font cannot display some characters. CSV preserves Unicode text.':'Export unavailable. Unlock the app and try again. For PDF, limit the result to 1,000 records.');}
-    finally{if(mounted)setState(()=>_busy=false);}}
-  @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:Text(widget.document.title)),body:ListView(padding:const EdgeInsets.all(24),children:[
-    Text(widget.document.scope),Text('${widget.document.rows.length} records · Preview shows the first 30. Exports use the complete result.'),
-    Wrap(spacing:12,children:[FilledButton(onPressed:_busy?null:()=>_export(false),child:const Text('Share CSV')),OutlinedButton(onPressed:_busy?null:()=>_export(true),child:const Text('Share PDF')),TextButton(onPressed:_busy?null:()=>_export(true,preview:true),child:const Text('Preview PDF'))]),
-    if(_busy)const LinearProgressIndicator(),if(_message!=null)Text(_message!),
-    SingleChildScrollView(scrollDirection:Axis.horizontal,child:DataTable(columns:[for(final h in widget.document.headers)DataColumn(label:Text(h))],rows:[for(final row in widget.document.rows.take(30))DataRow(cells:[for(final cell in row)DataCell(SizedBox(width:160,child:Text(cell,maxLines:4,overflow:TextOverflow.ellipsis)))])])),
-  ]));
+  Future<void> _export(bool pdf, {bool preview = false}) async {
+    if (_busy) return;
+    final size = MediaQuery.sizeOf(context);
+    final origin = Rect.fromLTWH(size.width / 2, size.height / 2, 1, 1);
+    setState(() { _busy = true; _message = null; });
+    try {
+      final file = await ReportExporter.write(widget.document, pdf);
+      if (!mounted) return;
+      if (preview) {
+        await DocumentBridge.open(file);
+      } else {
+        await ReportExporter.share(file, origin: origin);
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() => _message = error is UnsupportedError
+          ? 'The PDF font cannot display some characters. CSV preserves Unicode text.'
+          : 'Export unavailable. Unlock the app and try again. For PDF, limit the result to 1,000 records.');
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+  @override
+  Widget build(BuildContext context) {
+    final document = widget.document;
+    final t = Theme.of(context).textTheme;
+    final rows = document.rows.take(30);
+    return Scaffold(
+      appBar: AppBar(title: Text(document.title)),
+      body: SafeArea(top: false, child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+        children: [
+          AppCard(child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Text(document.scope, style: t.titleMedium),
+            const SizedBox(height: 8),
+            Text(context.tr(
+              '${document.rows.length} records · Preview shows up to 30',
+              '${document.rows.length} ثبت · پیش‌نمایش تا ۳۰ ثبت',
+            ), style: t.labelMedium),
+            const SizedBox(height: 12),
+            Wrap(spacing: 8, runSpacing: 6, children: [
+              FilledButton.icon(onPressed: _busy ? null : () => _export(true),
+                icon: const Icon(Icons.share_outlined), label: Text(context.tr('Share PDF', 'اشتراک PDF'))),
+              OutlinedButton(onPressed: _busy ? null : () => _export(false),
+                child: Text(context.tr('Share CSV', 'اشتراک CSV'))),
+              TextButton(onPressed: _busy ? null : () => _export(true, preview: true),
+                child: Text(context.tr('Preview PDF', 'پیش‌نمایش PDF'))),
+            ]),
+            if (_busy) const LinearProgressIndicator(),
+            if (_message != null) Semantics(liveRegion: true, child: Text(_message!)),
+          ])),
+          for (final row in rows)
+            Padding(padding: const EdgeInsets.only(top: 8), child: AppCard(
+              padding: const EdgeInsets.all(12),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                for (var column = 0; column < document.headers.length; column++)
+                  if (row[column].isNotEmpty) Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(document.headers[column].replaceAll('_', ' '), style: t.labelMedium),
+                      Text(row[column], style: t.bodyMedium),
+                    ]),
+                  ),
+              ]),
+            )),
+        ],
+      )),
+    );
+  }
 }

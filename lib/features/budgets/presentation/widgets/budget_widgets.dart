@@ -1,3 +1,4 @@
+import '../../../../core/theme/app_accent.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/constants/currency.dart';
@@ -128,11 +129,11 @@ class BudgetSummaryCard extends StatelessWidget {
               width: 48,
               height: 48,
               decoration: BoxDecoration(
-                color: AppColors.emerald.withValues(alpha: context.isDark ? 0.16 : 0.1),
+                color: context.accent.surface,
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Icon(Icons.track_changes_rounded,
-                  color: context.isDark ? AppColors.emeraldBright : AppColors.emeraldDeep),
+                  color: context.accent.onSurface),
             ),
             const SizedBox(width: 14),
             Expanded(

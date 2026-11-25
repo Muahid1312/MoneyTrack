@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../constants/categories.dart';
-import '../theme/app_colors.dart';
+import '../theme/app_accent.dart';
 
 /// Rounded-square tinted icon for a category.
 class CategoryAvatar extends StatelessWidget {
@@ -18,34 +18,17 @@ class CategoryAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = category.color;
-    final bg = selected
-        ? c
-        : c.withValues(alpha: context.isDark ? 0.18 : 0.12);
+    final a = context.accent;
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOutCubic,
-      width: size,
-      height: size,
+      duration: const Duration(milliseconds: 180),
+      width: size, height: size,
       decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(size * 0.32),
-        boxShadow: selected
-            ? [
-                BoxShadow(
-                    color: c.withValues(alpha: 0.35),
-                    blurRadius: 14,
-                    offset: const Offset(0, 6)),
-              ]
-            : null,
+        color: selected ? a.primary : a.surface,
+        borderRadius: BorderRadius.circular(size * .32),
       ),
-      child: Icon(
-        category.icon,
-        size: size * 0.48,
-        color: selected
-            ? Colors.white
-            : (context.isDark ? Color.lerp(c, Colors.white, 0.18) : c),
-      ),
+      child: Icon(category.icon, size: size * .48,
+        color: selected ? a.onPrimary : a.onSurface),
     );
+
   }
 }

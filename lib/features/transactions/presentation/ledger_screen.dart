@@ -117,7 +117,7 @@ class _LedgerState extends ConsumerState<LedgerScreen> {
                   if (mounted && day != null) select(day);
                 },
                 style: TextButton.styleFrom(
-                  foregroundColor: Colors.white,
+                  foregroundColor: Theme.of(context).colorScheme.onSurface,
                   padding: const EdgeInsets.symmetric(horizontal: 3),
                   minimumSize: const Size(44, 48),
                 ),

@@ -1,3 +1,8 @@
+import '../../../core/utils/app_language.dart';
+import '../../reports/presentation/reports_screen.dart';
+import '../application/managed_fund_report.dart';
+import '../../../core/widgets/finance_hero.dart';
+import '../../../core/widgets/app_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart' show DateFormat;
@@ -63,15 +68,9 @@ class ManagedFundsScreen extends ConsumerWidget {
                       if (funds.isEmpty)
                         const ListTile(title: Text('No managed funds yet')),
                       for (final fund in funds)
-                        ListTile(
-                          leading: LedgerGlyph(_icon(fund.icon)),
-                          title: Text(fund.name),
-                          subtitle: Text(
-                            '${fund.provider} · ${fund.currency.code} · ${_status(fund.status)}',
-                          ),
-                          trailing: const Icon(Icons.chevron_right),
-                          onTap: () =>
-                              _page<void>(context, ManagedFundScreen(fund.id)),
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: _ManagedFundCard(fund),
                         ),
                     ],
                   ),
@@ -200,6 +199,12 @@ class _ManagedFundState extends ConsumerState<ManagedFundScreen> {
           Text(
             'Expected completion: ${DateFormat.yMMMd().format(fund.expected!)}',
           ),
+        FinanceHero(
+          label: 'Available entrusted cash', amount: money(ledger.cash),
+          details: [(label: 'Total received', value: money(ledger.received)),
+            (label: 'Purchase expenses', value: money(ledger.expenses))],
+        ),
+        const SizedBox(height: 8),
         if (fund.status == FundStatus.active)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),
@@ -222,19 +227,21 @@ class _ManagedFundState extends ConsumerState<ManagedFundScreen> {
               ],
             ),
           ),
+        Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: TextButton.icon(
+            onPressed: () => _page<void>(context, ReportPreviewScreen(
+              document: managedFundReport(detail, dari: context.usesDari),
+            )),
+            icon: const Icon(Icons.description_outlined),
+            label: Text(context.tr('Generate report', 'ساخت گزارش')),
+          ),
+        ),
         Card(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Column(
               children: [
-                _AmountRow(
-                  'Available entrusted cash',
-                  money(ledger.cash),
-                  primary: true,
-                ),
-                const Divider(),
-                _AmountRow('Total received', money(ledger.received)),
-                _AmountRow('Purchase expenses', money(ledger.expenses)),
                 _AmountRow('Paid from entrusted cash', money(ledger.cashSpent)),
                 _AmountRow('Personal advances', money(ledger.advanced)),
                 _AmountRow(
@@ -308,15 +315,12 @@ class _ManagedFundState extends ConsumerState<ManagedFundScreen> {
 }
 
 class _AmountRow extends StatelessWidget {
-  const _AmountRow(this.label, this.amount, {this.primary = false});
+  const _AmountRow(this.label, this.amount);
   final String label, amount;
-  final bool primary;
 
   @override
   Widget build(BuildContext context) {
-    final style = primary
-        ? Theme.of(context).textTheme.titleMedium
-        : Theme.of(context).textTheme.bodyMedium;
+    final style = Theme.of(context).textTheme.bodyMedium;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -686,4 +690,44 @@ class _Retry extends StatelessWidget {
       child: const Text('Retry loading records'),
     ),
   );
+}
+
+class _ManagedFundCard extends ConsumerWidget {
+  const _ManagedFundCard(this.fund);
+  final ManagedFund fund;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = Theme.of(context).textTheme;
+    return AppCard(
+      onTap: () => _page<void>(context, ManagedFundScreen(fund.id)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(children: [
+          LedgerGlyph(_icon(fund.icon)), const SizedBox(width: 10),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(fund.name, style: t.titleMedium),
+            Text('${fund.provider} · ${fund.currency.code} · ${_status(fund.status)}',
+              style: t.bodySmall),
+          ])),
+          const Icon(Icons.chevron_right),
+        ]),
+        ref.watch(managedFundProvider(fund.id)).when(
+          loading: () => const LinearProgressIndicator(),
+          error: (_, _) => TextButton(
+            onPressed: () => ref.invalidate(managedFundProvider(fund.id)),
+            child: const Text('Retry fund balances'),
+          ),
+          data: (detail) {
+            final ledger = detail.ledger;
+            String money(int minor) => Money.format(minor, fund.currency);
+            return Padding(padding: const EdgeInsets.only(top: 10), child: FinancialSummary([
+              (label: 'Received', value: money(ledger.received), color: null),
+              (label: 'Spent', value: money(ledger.expenses), color: null),
+              (label: 'Remaining', value: money(ledger.cash), color: Theme.of(context).colorScheme.primary),
+            ]));
+          },
+        ),
+      ]),
+    );
+  }
 }

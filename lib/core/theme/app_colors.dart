@@ -3,9 +3,6 @@ import 'package:flutter/material.dart';
 /// Brand colour primitives. Screens should prefer the semantic
 /// [AppPalette] (via `context.palette`) over these raw values.
 abstract final class AppColors {
-  static const primary = Color(0xFFD84A45);
-  static const primaryDark = Color(0xFFB93835);
-  static const primaryLight = Color(0xFFFFAAA3);
 
   // Midnight navy scale
   static const navy950 = Color(0xFF141517);
@@ -25,12 +22,6 @@ abstract final class AppColors {
 
   static const incomeBlue = Color(0xFF206BA9);
   static const incomeLight = Color(0xFF83BFFF);
-  // Legacy palette for stored goal and project choices.
-  static const emerald = Color(0xFF10B981);
-  static const emeraldDeep = Color(0xFF047857);
-  static const emeraldBright = Color(0xFF34D399);
-  static const emeraldMist = Color(0xFFD1FAE5);
-
   // Supporting semantic hues
   static const rose = Color(0xFFF43F5E);
   static const roseSoft = Color(0xFFFB7185);
@@ -83,19 +74,19 @@ class AppPalette extends ThemeExtension<AppPalette> {
   final Color chartTrack;
 
   static const light = AppPalette(
-    background: AppColors.offWhite,
+    background: Color(0xFFF5F6F3),
     surface: AppColors.white,
-    surfaceMuted: AppColors.slate100,
+    surfaceMuted: Color(0xFFEFF2EE),
     surfaceElevated: AppColors.white,
     border: AppColors.slate200,
-    textPrimary: AppColors.navy900,
-    textSecondary: AppColors.slate500,
+    textPrimary: Color(0xFF18241F),
+    textSecondary: Color(0xFF53635B),
     textTertiary: AppColors.slate500,
     income: AppColors.incomeBlue,
     incomeSoft: Color(0xFFE9F3FD),
     expense: Color(0xFFBD3836),
     expenseSoft: Color(0xFFFDECEF),
-    warning: Color(0xFFD97706),
+    warning: Color(0xFF925309),
     warningSoft: Color(0xFFFEF3E2),
     shadow: Color(0xFF222222),
     navBar: AppColors.white,

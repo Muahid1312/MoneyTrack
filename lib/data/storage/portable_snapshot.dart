@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
 import '../../core/constants/currency.dart';
+import '../../core/theme/app_accent.dart';
 import '../../features/planning/domain/schedule.dart';
 import '../../features/wallets/domain/exchange_rate.dart';
 import '../database/app_database.dart';
@@ -14,11 +15,13 @@ import '../database/group_migration.dart';
 import '../database/managed_funds_migration.dart';
 import '../repositories/managed_fund_repository.dart';
 import '../repositories/group_repository.dart';
+import '../repositories/settings_repository.dart';
+import '../models/app_settings.dart';
 import '../../features/budgets/domain/wallet_budget.dart';
 
 abstract final class PortableSnapshot {
   static const tables=['wallets','projects','project_categories','debts','savings_goals','recurring_rules','transactions','transfers','project_allocations','debt_postings','savings_events','recurring_occurrences','attachments','wallet_budgets',...groupTables,...managedFundTables];
-  static const preferenceKeys=['theme_mode','currency','monthly_budget_minor','user_name','hide_balance','local_reminders',
+  static const preferenceKeys=['theme_mode',AppAccent.preferenceKey,SettingsRepository.languageKey,'currency','monthly_budget_minor','user_name','hide_balance','local_reminders',
     'budget_AFN','budget_USD','budget_EUR','budget_PKR','budget_JPY','budget_KWD'];
   static const supportedSchemas = [5, 6, 7, AppDatabase.schemaVersion];
   static const maxBytes=32*1024*1024;
@@ -56,6 +59,16 @@ abstract final class PortableSnapshot {
     for(final e in values.entries){final v=e.value;
       if(e.key.startsWith('budget_')||e.key=='monthly_budget_minor'){if(v is! int||v<0||v>AppInfo.maxAmountMinor)throw const FormatException('Invalid budget');}
       else if(e.key=='currency'){AppCurrency.requireCode(v as String);}
+      else if (e.key == AppAccent.preferenceKey) {
+        if (v is! String || AccentPreference.decode(v) == null) {
+          throw const FormatException('Invalid appearance colors');
+        }
+      }
+      else if (e.key == SettingsRepository.languageKey) {
+        if (!AppLanguageChoice.values.any((choice) => choice.name == v)) {
+          throw const FormatException('Invalid appearance language');
+        }
+      }
       else if(e.key=='theme_mode'){if(!['system','dark','light'].contains(v))throw const FormatException('Invalid theme');}
       else if(e.key=='user_name'){if(v is! String||v.length>1000)throw const FormatException('Invalid name');}
       else if(v is! bool)throw const FormatException('Invalid preference');

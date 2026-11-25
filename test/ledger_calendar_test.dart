@@ -1,3 +1,5 @@
+import 'support/open_feature.dart';
+import 'package:moneytrack/features/explore/explore_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -145,6 +147,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      await openFeature(tester, MoneyFeature.calendar);
       expect(find.text('February 2024'), findsOneWidget);
       expect(find.textContaining('Tea and bread'), findsOneWidget);
       expect(find.textContaining('Previous evening'), findsNothing);
@@ -231,10 +234,9 @@ void main() {
       expect(find.text('January 2024'), findsOneWidget);
       await tester.tap(find.byTooltip('Next month'));
       await tester.pumpAndSettle();
-      await tester.tap(
-        find.widgetWithText(NavigationDestination, 'Statistics'),
-      );
+      await tester.pageBack();
       await tester.pumpAndSettle();
+      await openFeature(tester, MoneyFeature.insights);
       await capture('statistics');
       await tester.tap(find.widgetWithText(InkWell,'Income').hitTestable().last);
       await tester.pumpAndSettle();
@@ -251,6 +253,8 @@ void main() {
       expect(find.textContaining('Tea and bread'), findsNothing);
       await tester.pageBack();
       await tester.pumpAndSettle();
+      await tester.pageBack();
+      await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(NavigationDestination, 'Accounts'));
       await tester.pumpAndSettle();
       await capture('accounts');
@@ -258,6 +262,7 @@ void main() {
       await tester.tap(find.byTooltip('Transfer money'));await tester.pumpAndSettle();await capture('transfer');
       await tester.pageBack();await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(NavigationDestination,'More'));await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Clear search'));await tester.pumpAndSettle();
       expect(find.text('Money Management'),findsOneWidget);
       expect(find.byKey(const ValueKey('feature-groups')).hitTestable(),findsOneWidget);
       await capture('more');

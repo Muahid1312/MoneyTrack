@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../app/app_shell.dart';
+import '../transactions/presentation/ledger_screen.dart';
+import '../statistics/presentation/ledger_statistics_screen.dart';
 import '../../core/constants/categories.dart';
 import '../../core/utils/date_utils.dart';
 import '../../core/utils/money.dart';
@@ -48,6 +49,13 @@ enum MoneyFeature {
     'Browse income and spending by category.',
     'food salary groceries transport dining',
     Icons.category_outlined,
+  ),
+  calendar(
+    'Financial Management',
+    'Transaction calendar',
+    'Browse daily, weekly and monthly entries.',
+    'ledger calendar transactions history activity',
+    Icons.calendar_month_outlined,
   ),
   activity(
     'Financial Management',
@@ -129,7 +137,7 @@ enum MoneyFeature {
   ),
   insights(
     'Financial Management',
-    'Spending insights',
+    'Statistics',
     'Compare spending and income over time.',
     'analytics statistics trends chart balance categories',
     Icons.bar_chart,
@@ -170,6 +178,10 @@ enum MoneyFeature {
     Icons.ios_share,
   ),
   appearance('Application','Appearance','Choose light, dark or system theme.','display night mode day theme colors',Icons.contrast_outlined),
+  profile(
+    'Application', 'Profile', 'Change the name on your Home screen.',
+    'personal profile name account greeting', Icons.person_outline,
+  ),
   settings(
     'Application',
     'Settings',
@@ -199,12 +211,13 @@ enum MoneyFeature {
 
   Future<void> open(BuildContext context, WidgetRef ref) async {
     if (this == add) return TransactionActions.openEditor(context, ref);
-    if (this == insights) {
-      ref.read(shellTabProvider.notifier).state = 1;
-      return;
+    if (this == activity || this == calendar) {
+      ref.read(transactionFilterProvider.notifier).state = const TransactionFilter();
+      ref.read(activityCurrencyChoiceProvider.notifier).state = null;
     }
     final page = switch (this) {
       overview => Scaffold(appBar:AppBar(title:const Text('Available cash')),body:const DashboardScreen()),
+      calendar => const LedgerScreen(),
       activity => Scaffold(appBar:AppBar(title:const Text('Search all transactions')),body:const TransactionsScreen()),
       wallets => const WalletsScreen(),
       transfer => const TransferScreen(),
@@ -230,6 +243,7 @@ enum MoneyFeature {
       reminders => const PlanningScreen(),
       groups => const GroupsScreen(),
       managedFunds => const ManagedFundsScreen(),
+      insights => const LedgerStatisticsScreen(),
       projects => const ProjectsScreen(),
       reports => const ReportsScreen(),
       currency => const SettingsScreen(page: SettingsPage.currency),
@@ -237,6 +251,7 @@ enum MoneyFeature {
       security => const SecuritySettingsScreen(),
       export => const SettingsScreen(page: SettingsPage.export),
       appearance => const SettingsScreen(page:SettingsPage.appearance),
+      profile => const SettingsScreen(page: SettingsPage.profile),
       settings => const SettingsScreen(),
       _ => throw StateError('Unknown destination'),
     };

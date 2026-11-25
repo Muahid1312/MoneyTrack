@@ -1,3 +1,6 @@
+import '../application/appearance_controller.dart';
+import '../../../core/theme/app_accent.dart';
+import 'appearance_screen.dart';
 import '../../../core/utils/money.dart';
 import '../../../data/storage/app_runtime.dart';
 import '../../documents/application/document_service.dart';
@@ -21,7 +24,7 @@ import '../../transactions/application/transactions_controller.dart';
 import '../application/data_export_service.dart';
 import '../application/settings_controller.dart';
 
-enum SettingsPage { preferences, currency, export, appearance }
+enum SettingsPage { preferences, currency, export, appearance, profile }
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key, this.page = SettingsPage.preferences});
@@ -74,6 +77,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       if (!ok || !mounted) return;
       await ref.read(transactionsProvider.notifier).clearAll();
       await ref.read(settingsProvider.notifier).reset();
+      if (!mounted) return;
+      await ref.read(accentProvider.notifier).reset();
       if (ref.read(planningRepositoryProvider) != null) {
         await ReminderService().setEnabled(false);
         if (!mounted) return;
@@ -114,10 +119,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final count = ref.watch(allTransactionsProvider).length;
     final currency = settings.currency;
 
-    if(widget.page==SettingsPage.appearance){
-      return Scaffold(appBar:AppBar(title:const Text('Appearance')),body:ListView(children:[
-        for(final mode in ThemeMode.values)ListTile(leading:Icon(switch(mode){ThemeMode.system=>Icons.brightness_auto_outlined,ThemeMode.light=>Icons.light_mode_outlined,ThemeMode.dark=>Icons.dark_mode_outlined}),title:Text(switch(mode){ThemeMode.system=>'Use device setting',ThemeMode.light=>'Light',ThemeMode.dark=>'Dark'}),selected:mode==settings.themeMode,trailing:mode==settings.themeMode?const Icon(Icons.check):null,onTap:()=>ref.read(settingsProvider.notifier).setThemeMode(mode))
-      ]));
+    if (widget.page == SettingsPage.appearance) return const AppearanceScreen();
+    if (widget.page == SettingsPage.profile) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Profile')),
+        body: ListView(padding: const EdgeInsets.all(16), children: [
+          Card(child: ListTile(
+            leading: const Icon(Icons.person_outline),
+            title: Text(settings.userName.isEmpty ? 'Add your name' : settings.userName),
+            subtitle: const Text('Used for your dashboard greeting'),
+            trailing: const Icon(Icons.edit_outlined),
+            onTap: _editName,
+          )),
+        ]),
+      );
     }
     if (widget.page == SettingsPage.currency) {
       return Scaffold(appBar: AppBar(title: const Text('Reporting currency')), body: ListView(children: [
@@ -339,7 +354,7 @@ class _CurrencySheet extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 decoration: BoxDecoration(
                   color: c == current
-                      ? AppColors.primary.withValues(alpha: context.isDark ? 0.14 : 0.08)
+                      ? context.accent.surface
                       : Colors.transparent,
                   borderRadius: BorderRadius.circular(16),
                 ),
@@ -368,7 +383,7 @@ class _CurrencySheet extends StatelessWidget {
                       ),
                     ),
                     if (c == current)
-                      const Icon(Icons.check_circle_rounded, color: AppColors.primary),
+                      Icon(Icons.check_circle_rounded, color: context.accent.primary),
                   ],
                 ),
               ),
@@ -441,7 +456,7 @@ class _AboutSheet extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(icon, size: 20, color: context.isDark ? AppColors.primaryLight : AppColors.primaryDark),
+              Icon(icon, size: 20, color: context.accent.primary),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -504,19 +519,16 @@ class MoneyTrackLogo extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(size * 0.3),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF1F2B3E), AppColors.navy900],
-        ),
-        boxShadow: AppShadows.hero(context),
+        color: context.accent.dark,
       ),
-      child: CustomPaint(painter: _LogoPainter()),
+      child: CustomPaint(painter: _LogoPainter(context.accent.light)),
     );
   }
 }
 
 class _LogoPainter extends CustomPainter {
+  const _LogoPainter(this.ink);
+  final Color ink;
   @override
   void paint(Canvas canvas, Size s) {
     final path = Path()
@@ -531,14 +543,12 @@ class _LogoPainter extends CustomPainter {
         ..strokeWidth = s.width * 0.085
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round
-        ..shader = const LinearGradient(
-          colors: [AppColors.primaryLight, AppColors.primary],
-        ).createShader(Offset.zero & s),
+        ..color = ink,
     );
     canvas.drawCircle(Offset(s.width * 0.76, s.height * 0.30), s.width * 0.06,
-        Paint()..color = AppColors.primaryLight);
+        Paint()..color = ink);
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _LogoPainter oldDelegate) => oldDelegate.ink != ink;
 }

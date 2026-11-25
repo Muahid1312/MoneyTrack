@@ -39,6 +39,23 @@ void main() {
     expect(find.text('US Dollar · USD'), findsOneWidget);
     expect(find.text('Afghan savings'), findsOneWidget);
     expect(find.text('7,000.00 ؋'), findsWidgets);
+    await tester.tap(find.text('Afghan savings'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Reconcile balance'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '6950');
+    await tester.tap(find.text('Compare'));
+    await tester.pumpAndSettle();
+    expect(find.text('Difference: −50.00 ؋'), findsOneWidget);
+    await tester.tap(find.text('Review wallet history'));
+    await tester.pumpAndSettle();
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await tester.runAsync(() async {
+      final snapshot = await repo.fetch();
+      expect(snapshot.balances[2], 700000);
+      expect(snapshot.transfers, isEmpty);
+    });
     await tester.tap(find.text('New wallet'));
     await tester.pumpAndSettle();
     expect(find.text('Wallet name'), findsOneWidget);
