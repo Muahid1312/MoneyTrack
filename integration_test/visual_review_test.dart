@@ -158,7 +158,7 @@ void main() {
     await picture('transfer', find.text('Transfer money'));
     await back();
     await tab('More');
-    await picture('more', find.text('Group Money'));
+    await picture('more', find.text('Money Management'));
     await tap(find.byKey(const ValueKey('feature-groups')));
     await picture('groups', find.text('650.00 ؋'));
     await tap(find.text('Paghman trip'));

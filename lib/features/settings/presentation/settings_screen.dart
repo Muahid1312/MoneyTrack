@@ -69,7 +69,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     try {
       final count = ref.read(allTransactionsProvider).length;
       final ok = await confirmDestructive(context, title: 'Clear current ledger?',
-        message: 'This permanently deletes $count transactions, receipts, transfers, opening balances, project allocations, debts, savings history, recurring rules and history, budgets and preferences. Groups & Trips keeps its separate fund records. Wallet and project definitions and the device PIN remain. Previously restored rollback generations and files saved outside the app remain. This cannot be undone.',
+        message: 'This permanently deletes $count transactions, receipts, transfers, opening balances, project allocations, debts, savings history, recurring rules and history, budgets and preferences. Groups & Trips and Managed Funds keep their own records. Wallet and project definitions and the device PIN remain. Previously restored rollback generations and files saved outside the app remain. This cannot be undone.',
         confirmLabel: 'Clear ledger', icon: Icons.delete_forever_outlined);
       if (!ok || !mounted) return;
       await ref.read(transactionsProvider.notifier).clearAll();

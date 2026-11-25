@@ -13,8 +13,8 @@ class SelectedDocument {
 }
 abstract final class DocumentBridge {
   static const channel=MethodChannel('moneytrack/documents');
-  static Future<SelectedDocument?> pick(String kind) async {
-    final raw=await channel.invokeMapMethod<String,dynamic>('pick',{'kind':kind});
+  static Future<SelectedDocument?> pick(String kind,{bool compressPhoto=false}) async {
+    final raw=await channel.invokeMapMethod<String,dynamic>('pick',{'kind':kind,'compressPhoto':compressPhoto});
     await AccessGuard.waitForUnlock();AccessGuard.writable();
     if(raw==null)return null;return SelectedDocument(raw['name'] as String,raw['bytes'] as Uint8List);
   }

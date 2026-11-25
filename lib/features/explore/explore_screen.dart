@@ -16,6 +16,7 @@ import '../planning/presentation/planning_screens.dart';
 import '../planning/presentation/upcoming_screen.dart';
 import '../projects/presentation/projects_screen.dart';
 import '../groups/presentation/groups_screen.dart';
+import '../managed_funds/presentation/managed_funds_screen.dart';
 import '../reports/presentation/reports_screen.dart';
 import '../security/presentation/security_widgets.dart';
 import '../settings/presentation/settings_screen.dart';
@@ -28,14 +29,14 @@ import '../dashboard/presentation/dashboard_screen.dart';
 enum MoneyFeature {
   overview('Planning','Available cash','Check cash, reserved savings and wallet spending plans.','dashboard home today available balance budget emergency',Icons.account_balance_outlined),
   wallets(
-    'Group Money',
+    'Money Management',
     'Wallets and accounts',
     'Check cash and view each account’s history.',
     'bank cash opening balance archive',
     Icons.account_balance_wallet_outlined,
   ),
   transfer(
-    'Group Money',
+    'Money Management',
     'Transfer money',
     'Move cash between your wallets.',
     'send exchange fx rate conversion',
@@ -111,7 +112,14 @@ enum MoneyFeature {
     'notification notify alarm reconcile planning',
     Icons.notifications_outlined,
   ),
-  groups('Group Money','Groups & Trips','Collect contributions, track shared purchases and settle refunds.','friends picnic group expenses trip fund football futsal outing shared split reimbursements',Icons.groups_outlined),
+  groups('Money Management','Groups & Trips','Collect contributions, track shared purchases and settle refunds.','friends picnic group expenses trip fund football futsal outing shared split reimbursements',Icons.groups_outlined),
+  managedFunds(
+    'Money Management',
+    'Managed Funds',
+    'Track money entrusted to you and record purchases and advances.',
+    'پول امانتی entrusted groceries parent provider reimbursement funds',
+    Icons.inventory_2_outlined,
+  ),
   projects(
     'Financial Management',
     'Projects',
@@ -221,6 +229,7 @@ enum MoneyFeature {
       upcoming => const UpcomingScreen(),
       reminders => const PlanningScreen(),
       groups => const GroupsScreen(),
+      managedFunds => const ManagedFundsScreen(),
       projects => const ProjectsScreen(),
       reports => const ReportsScreen(),
       currency => const SettingsScreen(page: SettingsPage.currency),
@@ -483,13 +492,16 @@ class _ExploreState extends ConsumerState<ExploreScreen> {
                 'No matching features. Try a shorter name such as “debt” or “wallet”.',
               ),
             ),
-          for (final group in const ['Group Money','Planning','Financial Management','Tools','Application']) if(items.any((f)=>f.group==group)) ...[
+          for (final group in const ['Money Management','Planning','Financial Management','Tools','Application']) if(items.any((f)=>f.group==group)) ...[
             _Heading(group),
             Card(
               clipBehavior: Clip.antiAlias,
               child: Column(
                 children: [
-                  for(final f in [if(group=='Group Money' && items.contains(MoneyFeature.groups))MoneyFeature.groups,...items.where((f)=>f.group==group && f!=MoneyFeature.groups)])
+                  for(final f in [
+                    if(group=='Money Management') ...[MoneyFeature.groups, MoneyFeature.managedFunds].where(items.contains),
+                    ...items.where((f)=>f.group==group && f!=MoneyFeature.groups && f!=MoneyFeature.managedFunds),
+                  ])
                     _FeatureTile(key:ValueKey('feature-${f.name}'),feature:f,pinned:_pins.contains(f),onOpen:()=>_open(f),onPin:_ready?()=>_pin(f):null),
 
                 ],

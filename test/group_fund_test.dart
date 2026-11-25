@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:moneytrack/core/constants/currency.dart';
 import 'package:moneytrack/data/database/app_database.dart';
 import 'package:moneytrack/data/database/group_migration.dart';
+import 'package:moneytrack/data/database/managed_funds_migration.dart';
 import 'package:moneytrack/data/repositories/group_repository.dart';
 import 'package:moneytrack/data/storage/access_guard.dart';
 import 'package:moneytrack/data/storage/portable_snapshot.dart';
@@ -529,7 +530,7 @@ void main() {
         fixture.prefs,
       );
       data['schema'] = 6;
-      for (final t in groupTables) {
+      for (final t in [...groupTables, ...managedFundTables]) {
         (data['tables'] as Map).remove(t);
       }
       final stage = await fixture.store.prepare(data);

@@ -4,6 +4,11 @@ import android.app.Activity
 import android.content.ClipData
 import android.content.Intent
 import android.net.Uri
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Matrix
+import android.media.ExifInterface
+import android.os.Build
 import android.provider.MediaStore
 import android.provider.OpenableColumns
 import androidx.core.content.FileProvider
@@ -17,13 +22,15 @@ class DocumentBridge(private val activity: FlutterFragmentActivity) {
     private var pending: MethodChannel.Result? = null
     private var camera: File? = null
     private var limit = 10485760
+    private var compressPhoto = false
     fun register(messenger: BinaryMessenger) {
         MethodChannel(messenger, "moneytrack/documents").setMethodCallHandler { call, result ->
             when (call.method) {
                 "pick" -> {
                     if (pending != null) { result.error("BUSY", "A document picker is already open", null); return@setMethodCallHandler }
                     val kind = call.argument<String>("kind") ?: "document"
-                    limit = if (kind == "backup") 33554432 else 10485760
+                    compressPhoto = call.argument<Boolean>("compressPhoto") == true && kind in listOf("camera", "gallery")
+                    limit = if (kind == "backup" || compressPhoto) 33554432 else 10485760
                     try {
                         pending = result
                         if (kind == "camera") {
@@ -64,6 +71,7 @@ class DocumentBridge(private val activity: FlutterFragmentActivity) {
         val result = pending ?: return true; pending = null
         val savedCamera = camera; camera = null
         val maximum = limit
+        val shrink = compressPhoto
         Thread {
         try {
             if (status != Activity.RESULT_OK) { activity.runOnUiThread { result.success(null) }; return@Thread }
@@ -81,10 +89,61 @@ class DocumentBridge(private val activity: FlutterFragmentActivity) {
                 while (true) { val size = input.read(buffer); if (size < 0) break; total += size; if (total > maximum) throw IllegalArgumentException(); output.write(buffer, 0, size) }
                 output.toByteArray()
             }
-            activity.runOnUiThread { result.success(mapOf("name" to name, "bytes" to bytes)) }
+            val content = if (shrink) resizeReceipt(bytes) else bytes
+            if (shrink) {
+                val extension = if (content[0] == 0x89.toByte()) ".png" else ".jpg"
+                name = name.substringBeforeLast('.') + extension
+            }
+            activity.runOnUiThread { result.success(mapOf("name" to name, "bytes" to content)) }
         } catch (_: Exception) { activity.runOnUiThread { result.error("IMPORT", "File unreadable or too large", null) } }
         finally { savedCamera?.delete() }
         }.start()
         return true
+    }
+    private fun resizeReceipt(bytes: ByteArray): ByteArray {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+        require(bounds.outWidth in 1..20000 && bounds.outHeight in 1..20000)
+        val jpeg = bounds.outMimeType == "image/jpeg"
+        val png = bounds.outMimeType == "image/png"
+        require(jpeg || png)
+        val longest = maxOf(bounds.outWidth, bounds.outHeight)
+        if (bytes.size <= 2 * 1024 * 1024 && longest <= 2400) return bytes
+
+        var sample = 1
+        while (longest / sample > 4800) sample *= 2
+        val decoded = BitmapFactory.decodeByteArray(
+            bytes, 0, bytes.size, BitmapFactory.Options().apply { inSampleSize = sample }
+        ) ?: throw IllegalArgumentException("Invalid receipt photo")
+        val matrix = Matrix()
+        if (jpeg && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            val orientation = bytes.inputStream().use {
+                ExifInterface(it).getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
+            }
+            when (orientation) {
+                ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> matrix.setScale(-1f, 1f)
+                ExifInterface.ORIENTATION_ROTATE_180 -> matrix.setRotate(180f)
+                ExifInterface.ORIENTATION_FLIP_VERTICAL -> matrix.setScale(1f, -1f)
+                ExifInterface.ORIENTATION_TRANSPOSE -> { matrix.setRotate(90f); matrix.postScale(-1f, 1f) }
+                ExifInterface.ORIENTATION_ROTATE_90 -> matrix.setRotate(90f)
+                ExifInterface.ORIENTATION_TRANSVERSE -> { matrix.setRotate(-90f); matrix.postScale(-1f, 1f) }
+                ExifInterface.ORIENTATION_ROTATE_270 -> matrix.setRotate(270f)
+            }
+        }
+        val scale = minOf(1f, 2400f / maxOf(decoded.width, decoded.height))
+        matrix.postScale(scale, scale)
+        val resized = Bitmap.createBitmap(decoded, 0, 0, decoded.width, decoded.height, matrix, true)
+        try {
+            val output = java.io.ByteArrayOutputStream()
+            for (quality in listOf(90, 82, 74, 66)) {
+                output.reset()
+                require(resized.compress(Bitmap.CompressFormat.JPEG, quality, output))
+                if (output.size() <= 2 * 1024 * 1024) return output.toByteArray()
+            }
+            throw IllegalArgumentException("Receipt could not be compressed to 2 MiB")
+        } finally {
+            if (resized !== decoded) resized.recycle()
+            decoded.recycle()
+        }
     }
 }

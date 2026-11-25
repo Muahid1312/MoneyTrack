@@ -11,13 +11,16 @@ import '../../features/planning/domain/schedule.dart';
 import '../../features/wallets/domain/exchange_rate.dart';
 import '../database/app_database.dart';
 import '../database/group_migration.dart';
+import '../database/managed_funds_migration.dart';
+import '../repositories/managed_fund_repository.dart';
 import '../repositories/group_repository.dart';
 import '../../features/budgets/domain/wallet_budget.dart';
 
 abstract final class PortableSnapshot {
-  static const tables=['wallets','projects','project_categories','debts','savings_goals','recurring_rules','transactions','transfers','project_allocations','debt_postings','savings_events','recurring_occurrences','attachments','wallet_budgets',...groupTables];
+  static const tables=['wallets','projects','project_categories','debts','savings_goals','recurring_rules','transactions','transfers','project_allocations','debt_postings','savings_events','recurring_occurrences','attachments','wallet_budgets',...groupTables,...managedFundTables];
   static const preferenceKeys=['theme_mode','currency','monthly_budget_minor','user_name','hide_balance','local_reminders',
     'budget_AFN','budget_USD','budget_EUR','budget_PKR','budget_JPY','budget_KWD'];
+  static const supportedSchemas = [5, 6, 7, AppDatabase.schemaVersion];
   static const maxBytes=32*1024*1024;
   static final receiptName=RegExp(r'^[0-9a-f]{32}\.(jpg|png|pdf)$');
   static Future<String> digest(List<int> bytes) async=>(await Sha256().hash(bytes)).bytes.map((v)=>v.toRadixString(16).padLeft(2,'0')).join();
@@ -66,9 +69,13 @@ abstract final class PortableSnapshot {
   /// Logical SQLite snapshot: every table and every referenced receipt is read
   /// while holding one SQLite transaction. No live SQLite file is copied.
   static Future<Map<String,dynamic>> capture(AppDatabase database,Directory receipts,SharedPreferences prefs) => database.db.transaction((txn) async {
+    final imageBytes=(await txn.rawQuery('''SELECT
+      COALESCE((SELECT SUM(length(data)) FROM trip_images),0) +
+      COALESCE((SELECT SUM(length(data)) FROM managed_receipts),0) AS bytes''')).single['bytes'] as int;
+    if (imageBytes > maxBytes - 4096) {
+      throw StateError('Group and managed fund images exceed the 32 MiB portable backup limit');
+    }
     await validate(txn);
-    final imageBytes=(await txn.rawQuery('SELECT COALESCE(SUM(length(data)),0) AS bytes FROM trip_images')).single['bytes'] as int;
-    if(imageBytes>maxBytes-4096)throw StateError('Group images exceed the 32 MiB portable backup limit');
     final data=<String,dynamic>{};var count=0;
     for(final table in tables){final rows=await txn.query(table,orderBy:'id');count+=rows.length;if(count>100000)throw StateError('Backup exceeds 100,000 records');data[table]=rows;}
     final files=<Map<String,dynamic>>[];var total=0;
@@ -83,9 +90,17 @@ abstract final class PortableSnapshot {
   });
   static Future<void> populate(AppDatabase database,Directory receipts,Map<String,dynamic> snapshot) async {
     final legacy = snapshot['schema'] == 5;
-    if(![5,6,AppDatabase.schemaVersion].contains(snapshot['schema']))throw const FormatException('Unsupported database version');
+    if(!supportedSchemas.contains(snapshot['schema']))throw const FormatException('Unsupported database version');
     final data=Map<String,dynamic>.from(snapshot['tables'] as Map);
     if (snapshot['schema'] != AppDatabase.schemaVersion) {
+      for(final table in managedFundTables){
+        if (data.containsKey(table)) {
+          throw const FormatException('Unexpected managed fund tables in older backup');
+        }
+        data[table]=[];
+      }
+    }
+    if (snapshot['schema'] == 5 || snapshot['schema'] == 6) {
       for(final table in groupTables){
         if(data.containsKey(table))throw const FormatException('Unexpected group tables in older backup');
         data[table]=[];
@@ -151,6 +166,7 @@ abstract final class PortableSnapshot {
     await reject("SELECT id FROM debts d WHERE (SELECT COUNT(*) FROM debt_postings p WHERE p.debt_id=d.id AND kind='origin' AND voided=0)!=1 OR principal_minor<COALESCE((SELECT SUM(principal_minor) FROM debt_postings p WHERE p.debt_id=d.id AND kind='repayment' AND voided=0),0)");
     await reject("SELECT id FROM savings_goals g WHERE COALESCE((SELECT SUM(delta_minor) FROM savings_events WHERE goal_id=g.id),0)<0 OR NOT EXISTS(SELECT 1 FROM wallets w WHERE w.id=g.wallet_id AND w.currency=g.currency) OR (status='completed' AND target_minor>COALESCE((SELECT SUM(delta_minor) FROM savings_events WHERE goal_id=g.id),0))");
     await GroupRepository.validateAll(db);
+    await ManagedFundRepository.validateAll(db);
     await reject("SELECT i.id FROM trip_images i JOIN trip_events e ON e.id=i.event_id WHERE e.kind NOT IN ('cashExpense','memberExpense','liability') LIMIT 1");
     for (final row in await db.query('wallet_budgets')) { WalletBudget.fromRow(row).validate(); }
     final wallets={for(final row in await db.query('wallets'))row['id']:row};

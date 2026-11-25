@@ -258,7 +258,7 @@ void main() {
       await tester.tap(find.byTooltip('Transfer money'));await tester.pumpAndSettle();await capture('transfer');
       await tester.pageBack();await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(NavigationDestination,'More'));await tester.pumpAndSettle();
-      expect(find.text('Group Money'),findsOneWidget);
+      expect(find.text('Money Management'),findsOneWidget);
       expect(find.byKey(const ValueKey('feature-groups')).hitTestable(),findsOneWidget);
       await capture('more');
       await tester.enterText(find.byType(TextField),'monthly limit');await tester.pumpAndSettle();
