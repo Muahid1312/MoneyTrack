@@ -4,6 +4,7 @@ import 'package:sqflite/sqflite.dart';
 import '../../core/constants/currency.dart';
 import 'planning_migration.dart';
 import 'group_migration.dart';
+import 'managed_funds_migration.dart';
 import 'personal_finance_migration.dart';
 import 'documents_migration.dart';
 import 'project_migration.dart';
@@ -11,7 +12,7 @@ import 'project_migration.dart';
 class AppDatabase {
   AppDatabase._(this.db);
   final Database db;
-  static const schemaVersion = 7;
+  static const schemaVersion = 8;
   static const transactionsTable = 'transactions';
 
   /// sqflite runs onCreate/onUpgrade in a transaction. A failed migration
@@ -31,6 +32,7 @@ class AppDatabase {
         await migrateDocumentsV5(db);
         await migratePersonalFinanceV6(db);
         await migrateGroupsV7(db);
+        await migrateManagedFundsV8(db);
       },
       onOpen: (db) => db.execute('CREATE INDEX IF NOT EXISTS idx_tx_history_order ON transactions(occurred_at DESC,id DESC)'),
       onUpgrade: (db, old, next) async {
@@ -41,6 +43,7 @@ class AppDatabase {
         if (old < 5) await migrateDocumentsV5(db);
         if (old < 6) await migratePersonalFinanceV6(db);
         if (old < 7) await migrateGroupsV7(db);
+        if (old < 8) await migrateManagedFundsV8(db);
       },
     ));
     return AppDatabase._(db);

@@ -1,3 +1,4 @@
+import '../theme/app_accent.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -34,16 +35,13 @@ class AnimatedProgressBar extends StatelessWidget {
           color: trackColor ?? p.chartTrack,
           borderRadius: BorderRadius.circular(height),
         ),
-        alignment: Alignment.centerLeft,
+        alignment: AlignmentDirectional.centerStart,
         child: FractionallySizedBox(
           widthFactor: v,
           child: Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(height),
-              gradient: LinearGradient(colors: [
-                Color.lerp(color, Colors.white, 0.18)!,
-                color,
-              ]),
+              color: color,
             ),
           ),
         ),
@@ -114,13 +112,7 @@ class _RingPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = stroke
       ..strokeCap = StrokeCap.round
-      ..shader = SweepGradient(
-        startAngle: 0,
-        endAngle: math.pi * 2,
-        transform: const GradientRotation(-math.pi / 2),
-        colors: [Color.lerp(color, Colors.white, 0.25)!, color, Color.lerp(color, Colors.white, 0.25)!],
-        stops: [0, value.clamp(0.05, 1.0), 1],
-      ).createShader(rect);
+      ..color = color;
     canvas.drawArc(r, -math.pi / 2, sweep, false, fg);
   }
 
@@ -134,5 +126,5 @@ Color budgetColor(BuildContext context, double ratio) {
   final p = context.palette;
   if (ratio > 1) return p.expense;
   if (ratio >= 0.8) return p.warning;
-  return AppColors.emerald;
+  return context.accent.primary;
 }

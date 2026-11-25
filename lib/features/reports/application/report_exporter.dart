@@ -29,8 +29,9 @@ abstract final class ReportExporter {
     final font=pw.Font.ttf(await rootBundle.load('assets/report_fonts/DejaVuSans.ttf'));
     final arabic=pw.Font.ttf(await rootBundle.load('assets/report_fonts/NotoSansArabic-Regular.ttf'));
     final bold=pw.Font.ttf(await rootBundle.load('assets/report_fonts/DejaVuSans-Bold.ttf'));
+    final direction = document.rightToLeft ? pw.TextDirection.rtl : pw.TextDirection.ltr;
     final output=pw.Document(theme:pw.ThemeData.withFont(base:font,bold:bold,fontFallback:[arabic]));
-    output.addPage(pw.MultiPage(pageFormat:PdfPageFormat.a4,margin:const pw.EdgeInsets.all(32),maxPages:1000,
+    output.addPage(pw.MultiPage(pageFormat:PdfPageFormat.a4,margin:const pw.EdgeInsets.all(32),maxPages:1000,textDirection:direction,
       header:(context)=>pw.Column(crossAxisAlignment:pw.CrossAxisAlignment.start,children:[pw.Text('MoneyTrack · ${document.title}',style:pw.TextStyle(fontSize:15,fontWeight:pw.FontWeight.bold)),pw.SizedBox(height:6),pw.Text(document.scope,style:const pw.TextStyle(fontSize:8)),pw.Divider()]),
       footer:(context)=>pw.Align(alignment:pw.Alignment.centerRight,child:pw.Text('Page ${context.pageNumber} of ${context.pagesCount}',style:const pw.TextStyle(fontSize:8))),
       build:(context){
@@ -42,8 +43,8 @@ abstract final class ReportExporter {
         if(document.rows.isEmpty)pw.Text('No records match the selected filters.'),
         for(var i=0;i<document.rows.length;i++)...[
           pw.Padding(padding:const pw.EdgeInsets.only(top:10,bottom:5),child:pw.Text('Record ${i+1}',style:pw.TextStyle(fontWeight:pw.FontWeight.bold,fontSize:10))),
-          pw.TableHelper.fromTextArray(headers:['Field','Value'],data:[for(var column=0;column<document.headers.length;column++)for(final chunk in _chunks(document.rows[i][column]))[document.headers[column].replaceAll('_',' '),chunk]],
-            columnWidths:{0:const pw.FlexColumnWidth(1),1:const pw.FlexColumnWidth(3)},cellAlignment:pw.Alignment.topLeft,
+          pw.TableHelper.fromTextArray(headers:document.rightToLeft?['عنوان','مقدار']:['Field','Value'],tableDirection:direction,headerDirection:direction,data:[for(var column=0;column<document.headers.length;column++)for(final chunk in _chunks(document.rows[i][column]))[document.headers[column].replaceAll('_',' '),chunk]],
+            columnWidths:{0:const pw.FlexColumnWidth(1),1:const pw.FlexColumnWidth(3)},cellAlignment:document.rightToLeft?pw.Alignment.topRight:pw.Alignment.topLeft,
             headerDecoration:const pw.BoxDecoration(color:PdfColors.grey200),headerStyle:pw.TextStyle(font:font,fontWeight:pw.FontWeight.bold,fontSize:8),cellStyle:pw.TextStyle(font:font,fontSize:8),cellPadding:const pw.EdgeInsets.all(5)),
         ]
       ];}));return output.save();

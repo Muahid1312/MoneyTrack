@@ -1,3 +1,4 @@
+import '../theme/app_accent.dart';
 import 'package:flutter/material.dart';
 
 import '../../data/models/transaction.dart';
@@ -53,7 +54,7 @@ class TransactionTile extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
           color: highlight
-              ? AppColors.emerald.withValues(alpha: context.isDark ? 0.10 : 0.07)
+              ? context.accent.surface
               : Colors.transparent,
           borderRadius: BorderRadius.circular(AppRadii.md),
         ),

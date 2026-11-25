@@ -134,6 +134,11 @@ void main() {
       await tap(tile);
     }
 
+    await picture('home', find.text('Welcome to MoneyTrack'));
+    await tab('More');
+    await tester.enterText(searchField, 'transaction calendar');
+    await tester.pumpAndSettle();
+    await openDirectoryItem('calendar');
     await picture('calendar', find.textContaining('Lunch with friends'));
     await tap(find.text('Daily'));
     await picture('daily', find.textContaining('Lunch with friends'));
@@ -150,15 +155,21 @@ void main() {
     await tap(find.byTooltip('Add transaction'));
     await picture('entry', find.byKey(const ValueKey('entry-amount')));
     await back();
-    await tab('Statistics');
+    await back();
+    await clearSearch();
+    await tester.enterText(searchField, 'Statistics');
+    await tester.pumpAndSettle();
+    await openDirectoryItem('insights');
     await picture('statistics', find.text('Food & Dining'));
+    await back();
     await tab('Accounts');
     await picture('accounts', find.text('Travel account'));
     await tap(find.byTooltip('Transfer money'));
     await picture('transfer', find.text('Transfer money'));
     await back();
     await tab('More');
-    await picture('more', find.text('Group Money'));
+    await clearSearch();
+    await picture('more', find.text('Money Management'));
     await tap(find.byKey(const ValueKey('feature-groups')));
     await picture('groups', find.text('650.00 ؋'));
     await tap(find.text('Paghman trip'));
@@ -183,11 +194,13 @@ void main() {
     await clearSearch();
     await openDirectoryItem('appearance');
     await tap(find.text('Dark'));
-    await picture('appearance-dark', find.text('Use device setting'));
+    await picture('appearance-dark', find.text('Display mode'));
     expect(c.read(settingsProvider).themeMode, ThemeMode.dark);
     await back();
-    await tab('Transactions');
-    await tap(find.text('Calendar'));
+    await clearSearch();
+    await tester.enterText(searchField, 'transaction calendar');
+    await tester.pumpAndSettle();
+    await openDirectoryItem('calendar');
     await picture('calendar-dark', find.text('Calendar'));
     expect(tester.takeException(), isNull);
   });

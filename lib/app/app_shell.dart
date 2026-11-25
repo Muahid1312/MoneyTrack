@@ -1,3 +1,4 @@
+import '../core/utils/app_language.dart';
 import '../data/storage/app_runtime.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -10,9 +11,9 @@ import '../core/widgets/feedback.dart';
 import '../features/explore/explore_screen.dart';
 import '../features/budgets/application/budget_providers.dart';
 import '../features/budgets/domain/budget_calculator.dart';
-import '../features/transactions/presentation/ledger_screen.dart';
+import '../features/dashboard/presentation/home_screen.dart';
+import '../features/budgets/presentation/budgets_overview_screen.dart';
 import '../features/settings/application/settings_controller.dart';
-import '../features/statistics/presentation/ledger_statistics_screen.dart';
 import '../features/wallets/presentation/wallets_screen.dart';
 
 /// Currently selected bottom-navigation tab.
@@ -30,8 +31,8 @@ class AppShell extends ConsumerStatefulWidget {
 
 class _AppShellState extends ConsumerState<AppShell> {
   static const _screens = [
-    LedgerScreen(),
-    LedgerStatisticsScreen(),
+    HomeScreen(),
+    BudgetsOverviewScreen(),
     WalletsScreen(),
     ExploreScreen(),
   ];
@@ -107,26 +108,23 @@ class _AppShellState extends ConsumerState<AppShell> {
           selectedIndex: index,
           onDestinationSelected: (i) =>
               ref.read(shellTabProvider.notifier).state = i,
-          labelTextStyle: WidgetStatePropertyAll(
-            Theme.of(context).textTheme.labelSmall,
-          ),
-          destinations: const [
+          destinations: [
             NavigationDestination(
-              icon: Icon(Icons.receipt_long_outlined),
+              icon: Icon(Icons.home_outlined),
               selectedIcon: Icon(Icons.receipt_long),
-              label: 'Transactions',
+              label: context.tr('Home', 'خانه'),
             ),
             NavigationDestination(
-              icon: Icon(Icons.pie_chart_outline),
+              icon: Icon(Icons.donut_large_outlined),
               selectedIcon: Icon(Icons.pie_chart),
-              label: 'Statistics',
+              label: context.tr('Budgets', 'بودجه‌ها'),
             ),
             NavigationDestination(
               icon: Icon(Icons.account_balance_wallet_outlined),
               selectedIcon: Icon(Icons.account_balance_wallet),
-              label: 'Accounts',
+              label: context.tr('Accounts', 'حساب‌ها'),
             ),
-            NavigationDestination(icon: Icon(Icons.more_horiz), label: 'More'),
+            NavigationDestination(icon: Icon(Icons.more_horiz), label: context.tr('More', 'بیشتر')),
           ],
         ),
       ),

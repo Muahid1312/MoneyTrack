@@ -1,3 +1,4 @@
+import '../../../core/theme/app_accent.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -232,12 +233,7 @@ class _OverviewCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         borderRadius: AppRadii.hero,
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF1F2B3E), AppColors.navy900],
-        ),
-        boxShadow: AppShadows.hero(context),
+        color: context.accent.dark,
       ),
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -266,7 +262,7 @@ class _OverviewCard extends StatelessWidget {
           const SizedBox(height: 6),
           FittedBox(
             fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
+            alignment: AlignmentDirectional.centerStart,
             child: AnimatedMoney(
               minor: totals.net,
               currency: currency,
@@ -335,7 +331,7 @@ class _MiniStat extends StatelessWidget {
         const SizedBox(height: 4),
         FittedBox(
           fit: BoxFit.scaleDown,
-          alignment: Alignment.centerLeft,
+          alignment: AlignmentDirectional.centerStart,
           child: AnimatedMoney(
             minor: minor,
             currency: currency,
@@ -432,7 +428,7 @@ class _InsightRow extends StatelessWidget {
                   const SizedBox(height: 2),
                   FittedBox(
                     fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
+                    alignment: AlignmentDirectional.centerStart,
                     child: AnimatedMoney(
                       minor: data.averageDailyExpense,
                       currency: currency,

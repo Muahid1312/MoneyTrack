@@ -22,13 +22,13 @@ abstract final class AppRadii {
   static const double xs = 4;
   static const double sm = 6;
   static const double md = 8;
-  static const double lg = 10;
-  static const double xl = 14;
+  static const double lg = 20;
+  static const double xl = 24;
   static const double pill = 999;
 
   static const card = BorderRadius.all(Radius.circular(lg));
   static const hero = BorderRadius.all(Radius.circular(xl));
-  static const control = BorderRadius.all(Radius.circular(md));
+  static const control = BorderRadius.all(Radius.circular(14));
 }
 
 abstract final class AppDurations {

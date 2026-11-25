@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/theme/app_accent.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/amount_input.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../../../../core/theme/app_typography.dart';
 
@@ -27,10 +29,11 @@ class ClearKey extends KeypadKey {
 
 /// Large-target numeric keypad. Long-press backspace clears the amount.
 class AmountKeypad extends StatelessWidget {
-  const AmountKeypad({super.key, required this.onKey, this.keyHeight = 58});
+  const AmountKeypad({super.key, required this.onKey, this.keyHeight = 50, this.allowDecimal = true, this.enabled = true});
 
   final ValueChanged<KeypadKey> onKey;
   final double keyHeight;
+  final bool allowDecimal, enabled;
 
   @override
   Widget build(BuildContext context) {
@@ -48,12 +51,12 @@ class AmountKeypad extends StatelessWidget {
               for (final k in row)
                 Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.all(4),
+                    padding: const EdgeInsets.all(3),
                     child: _Key(
                       keyValue: k,
                       height: keyHeight,
-                      onTap: () => onKey(k),
-                      onLongPress: k is BackspaceKey ? () => onKey(const ClearKey()) : null,
+                      onTap: enabled && (allowDecimal || k is! DecimalKey) ? () => onKey(k) : null,
+                      onLongPress: enabled && k is BackspaceKey ? () => onKey(const ClearKey()) : null,
                     ),
                   ),
                 ),
@@ -74,7 +77,7 @@ class _Key extends StatefulWidget {
 
   final KeypadKey keyValue;
   final double height;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final VoidCallback? onLongPress;
 
   @override
@@ -87,6 +90,7 @@ class _KeyState extends State<_Key> {
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
+    final a = context.accent;
     final k = widget.keyValue;
     final (Widget child, String label) = switch (k) {
       DigitKey(:final digit) => (
@@ -96,11 +100,11 @@ class _KeyState extends State<_Key> {
         ),
       DecimalKey() => (
           Text('.',
-              style: AppTypography.amount(30, weight: FontWeight.w700, color: p.textPrimary)),
+              style: AppTypography.amount(30, weight: FontWeight.w700, color: a.onSurface)),
           'Decimal point'
         ),
       BackspaceKey() => (
-          Icon(Icons.backspace_outlined, size: 24, color: p.textPrimary),
+          Icon(Icons.backspace_outlined, size: 22, color: a.onSurface),
           'Delete digit. Long press to clear'
         ),
       ClearKey() => (const SizedBox.shrink(), 'Clear'),
@@ -108,10 +112,13 @@ class _KeyState extends State<_Key> {
     return Semantics(
       button: true,
       label: label,
+      enabled: widget.onTap != null,
+      onTap: widget.onTap,
+      onLongPress: widget.onLongPress,
       excludeSemantics: true,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTapDown: (_) => setState(() => _down = true),
+        onTapDown: widget.onTap == null ? null : (_) => setState(() => _down = true),
         onTapUp: (_) => setState(() => _down = false),
         onTapCancel: () => setState(() => _down = false),
         onTap: widget.onTap,
@@ -127,11 +134,9 @@ class _KeyState extends State<_Key> {
           height: widget.height,
           decoration: BoxDecoration(
             color: _down
-                ? AppColors.primary.withValues(alpha: context.isDark ? 0.18 : 0.12)
-                : p.surface,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-                color: _down ? AppColors.primary.withValues(alpha: 0.4) : p.border.withValues(alpha: 0.7)),
+                ? a.surface
+                : k is DigitKey ? p.surface : a.surface,
+            borderRadius: AppRadii.control,
           ),
           alignment: Alignment.center,
           child: AnimatedScale(
@@ -144,3 +149,10 @@ class _KeyState extends State<_Key> {
     );
   }
 }
+
+AmountInput applyAmountKey(AmountInput input, KeypadKey key) => switch (key) {
+  DigitKey(:final digit) => input.appendDigit(digit),
+  DecimalKey() => input.appendDecimal(),
+  BackspaceKey() => input.backspace(),
+  ClearKey() => input.clear(),
+};

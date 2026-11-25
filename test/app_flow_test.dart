@@ -1,3 +1,4 @@
+import 'support/open_feature.dart';
 import 'package:moneytrack/data/repositories/project_repository.dart';
 import 'package:moneytrack/features/projects/application/project_providers.dart';
 import 'package:moneytrack/features/reports/application/report_service.dart';
@@ -94,16 +95,21 @@ Future<void> _scrollTo(WidgetTester tester, Finder f) =>
 void main() {
   testWidgets('empty app shows empty states on every tab', (tester) async {
     await _boot(tester);
+    expect(find.text('Welcome to MoneyTrack'),findsOneWidget);
+    await openFeature(tester, MoneyFeature.calendar);
     expect(find.text('Calendar'),findsOneWidget);
     expect(find.text('No entries on this date.'),findsOneWidget);
     await tester.tap(find.byTooltip('Search all transactions'));await tester.pumpAndSettle();
     expect(find.text('No transactions yet'),findsOneWidget);
+    await tester.pageBack();await tester.pumpAndSettle();
     await tester.pageBack();await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(NavigationDestination,'More'));await tester.pumpAndSettle();
     final search = find.byType(TextField);
     final titles = {
       MoneyFeature.overview: 'Available cash',
       MoneyFeature.activity:'Search all transactions',
+      MoneyFeature.calendar: 'Calendar',
+      MoneyFeature.insights: 'Trends and comparisons',
       MoneyFeature.wallets: 'Accounts',
       MoneyFeature.transfer: 'Transfer money',
       MoneyFeature.categories: 'Categories',
@@ -117,6 +123,7 @@ void main() {
       MoneyFeature.reminders: 'Local reminders',
       MoneyFeature.projects: 'Projects',
       MoneyFeature.groups: 'Groups & Trips',
+      MoneyFeature.managedFunds: 'Managed Funds',
       MoneyFeature.appearance:'Appearance',
       MoneyFeature.reports: 'Financial reports',
       MoneyFeature.currency: 'Reporting currency',
@@ -124,6 +131,7 @@ void main() {
       MoneyFeature.security: 'App security',
       MoneyFeature.export: 'Data export',
       MoneyFeature.settings: 'Settings',
+      MoneyFeature.profile: 'Profile',
     };
     for (final feature in MoneyFeature.values) {
       await tester.enterText(search, feature.title);
@@ -132,10 +140,6 @@ void main() {
       expect(tile, findsOneWidget, reason: feature.title);
       await tester.tap(tile);
       await tester.pumpAndSettle();
-      if (feature == MoneyFeature.insights) {
-        expect(find.text('Trends and comparisons'),findsOneWidget);
-        await tester.tap(find.widgetWithText(NavigationDestination,'More'));
-      } else {
         expect(find.byType(ExploreScreen), findsNothing, reason: feature.title);
         expect(find.text(titles[feature]!), findsWidgets, reason: feature.name);
         expect(tester.takeException(), isNull, reason: feature.title);
@@ -148,7 +152,6 @@ void main() {
         if (feature == MoneyFeature.export)
           expect(find.text('Export to CSV'), findsOneWidget);
         Navigator.of(tester.element(find.byType(Scaffold).last)).pop();
-      }
       await tester.pumpAndSettle();
     }
     for (final term in ['borrowed money', 'save money', 'business', 'monthly limit', 'backup']) {
@@ -168,6 +171,7 @@ void main() {
     tester,
   ) async {
     final container = await _boot(tester);
+    await openFeature(tester, MoneyFeature.calendar);
     await tester.tap(find.byTooltip('Add transaction'));
     await tester.pumpAndSettle();
     expect(find.text('Add expense'), findsOneWidget);
@@ -250,8 +254,7 @@ void main() {
         (2, AppCurrency.afn, 500),
       );
       await tester.pageBack();await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(NavigationDestination,'Transactions'));
-      await tester.pumpAndSettle();
+      await openFeature(tester, MoneyFeature.calendar);
       expect(find.text('Groceries'), findsWidgets);
     },
   );
@@ -260,8 +263,7 @@ void main() {
     'find an older transaction and open its original receipt actions',
     (tester) async {
       await _boot(tester, seed: true);
-      await tester.tap(find.byTooltip('Search all transactions'));
-      await tester.pumpAndSettle();
+      await openFeature(tester, MoneyFeature.activity);
       await tester.enterText(find.byType(TextField), 'Weekend trip');
       await tester.pump(const Duration(milliseconds: 250));
       await tester.pumpAndSettle();
@@ -275,7 +277,7 @@ void main() {
 
   testWidgets('seeded data renders statistics without errors', (tester) async {
     await _boot(tester, seed: true);
-    await tester.tap(find.widgetWithText(NavigationDestination,'Statistics'));await tester.pumpAndSettle();
+    await openFeature(tester, MoneyFeature.insights);
     await tester.ensureVisible(find.text('Trends and comparisons'));await tester.pumpAndSettle();await tester.tap(find.text('Trends and comparisons'));
     await tester.pumpAndSettle();
     await _scrollTo(tester, find.text('Expense breakdown'));

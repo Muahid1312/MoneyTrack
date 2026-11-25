@@ -66,7 +66,7 @@ Future<ReportData> loadReport(AppRuntime runtime,ReportFilter filter) {
   });
 }
 class ReportDocument {
-  const ReportDocument(this.title,this.scope,this.headers,this.rows);final String title,scope;final List<String> headers;final List<List<String>> rows;
+  const ReportDocument(this.title,this.scope,this.headers,this.rows,{this.rightToLeft=false});final bool rightToLeft;final String title,scope;final List<String> headers;final List<List<String>> rows;
 }
 abstract final class ReportDocuments {
   static ReportDocument build(ReportData data,String kind) {

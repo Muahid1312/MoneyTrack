@@ -23,6 +23,8 @@ class SettingsController extends Notifier<AppSettings> {
   Future<void> setThemeMode(ThemeMode mode) =>
       _update(state.copyWith(themeMode: mode));
 
+  Future<void> setLanguage(AppLanguageChoice language) => _update(state.copyWith(language: language));
+
   Future<void> setCurrency(AppCurrency c) async {
     if (c == state.currency) return;
     final repo = ref.read(settingsRepositoryProvider);

@@ -1,3 +1,4 @@
+import '../../../core/widgets/finance_hero.dart';
 import 'dart:typed_data';
 import 'package:flutter/material.dart' hide DataRow;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -108,7 +109,6 @@ class GroupDetails extends ConsumerWidget {
             appBar: AppBar(
               title: Text(g.name),
               bottom: const TabBar(
-                labelColor:Colors.white,unselectedLabelColor:Color(0xFFFAEAE9),indicatorColor:Colors.white,dividerColor:Colors.transparent,
                 isScrollable: true,
                 tabAlignment: TabAlignment.start,
                 tabs: [
@@ -197,7 +197,8 @@ class _GroupSection extends ConsumerWidget {
   );
   Widget summary(BuildContext c)=>Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
     Padding(padding:const EdgeInsets.only(bottom:8),child:Wrap(spacing:8,runSpacing:4,crossAxisAlignment:WrapCrossAlignment.center,children:[StatusLabel(g.stage.label,positive:g.stage==TripStage.completed),Text('${g.roster.length} members · ${g.currency.code}',style:Theme.of(c).textTheme.bodySmall)])),
-    FinancialSummary([(label:'Collected',value:money(g.collected),color:null),(label:'Spent',value:money(g.spent),color:c.palette.expense),(label:'Group cash',value:money(g.cash),color:null)]),
+    FinanceHero(label: 'Group cash · ${g.currency.code}', amount: money(g.cash), details: [(label: 'Collected', value: money(g.collected)), (label: 'Spent', value: money(g.spent))]),
+    const SizedBox(height: 10),
   ]);
   Widget obligationSummary(BuildContext c)=>Column(children:[
     stat('Reimbursements due',g.owed(EntryKind.memberExpense)),stat('Other unpaid bills',g.owed(EntryKind.liability)),
@@ -297,8 +298,9 @@ class _GroupSection extends ConsumerWidget {
               g.events[e.value.related]?.member == m.id),
     );
     final paid = g.net[m.id] ?? 0, due = g.memberDue(m);
-    return ExpansionTile(
-      tilePadding: EdgeInsets.zero,
+    return Card(child: ExpansionTile(
+      tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      childrenPadding: const EdgeInsets.symmetric(horizontal: 12),
       title: Text(m.name),
       subtitle:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
         Text('Paid ${money(paid)} · Expected ${money(m.expected)}'),
@@ -377,7 +379,7 @@ class _GroupSection extends ConsumerWidget {
           ),
         for (final e in history.toList().reversed) activity(c, e.key, e.value),
       ],
-    );
+    ));
   }
 
   List<Widget> settlement(BuildContext c) {

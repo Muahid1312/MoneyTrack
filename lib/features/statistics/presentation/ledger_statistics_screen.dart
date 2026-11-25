@@ -75,7 +75,7 @@ class _StatsState extends ConsumerState<LedgerStatisticsScreen> {
                 style: TextButton.styleFrom(
                   padding: const EdgeInsets.symmetric(horizontal: 3),
                   minimumSize: const Size(44, 48),
-                  foregroundColor: Colors.white,
+                  foregroundColor: Theme.of(context).colorScheme.onSurface,
                 ),
                 child: Text(
                   DateFormat('MMMM y').format(month),

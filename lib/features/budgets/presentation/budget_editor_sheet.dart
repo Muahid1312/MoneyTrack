@@ -1,3 +1,4 @@
+import '../../../core/theme/app_accent.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -148,20 +149,20 @@ class _BudgetEditorState extends ConsumerState<_BudgetEditor> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: context.isDark ? 0.14 : 0.08),
+                      color: context.accent.surface,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.auto_awesome_outlined,
-                            size: 16, color: context.isDark ? AppColors.primaryLight : AppColors.primaryDark),
+                            size: 16, color: context.accent.onSurface),
                         const SizedBox(width: 6),
                         Flexible(
                           child: Text(
                             'Use ${Money.format(suggestion, currency)} · based on last month',
                             style: t.labelMedium?.copyWith(
-                                color: context.isDark ? AppColors.primaryLight : AppColors.primaryDark),
+                                color: context.accent.onSurface),
                           ),
                         ),
                       ],

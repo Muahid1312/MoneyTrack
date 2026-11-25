@@ -1,3 +1,4 @@
+import '../../../../core/theme/app_accent.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -143,16 +144,8 @@ class _WeeklySpendingCardState extends State<WeeklySpendingCard> {
                           toY: d.amounts[i].toDouble(),
                           width: 22,
                           borderRadius: BorderRadius.circular(8),
-                          gradient: (i == selected || (selected == null && i == 6))
-                              ? const LinearGradient(
-                                  begin: Alignment.bottomCenter,
-                                  end: Alignment.topCenter,
-                                  colors: [AppColors.emeraldDeep, AppColors.emeraldBright],
-                                )
-                              : null,
-                          color: context.isDark
-                              ? const Color(0xFF2A3A55)
-                              : const Color(0xFFCFD8E3),
+                          color: i == selected || (selected == null && i == 6)
+                              ? context.accent.primary : context.accent.surface,
                           backDrawRodData: BackgroundBarChartRodData(
                             show: true,
                             toY: maxY,

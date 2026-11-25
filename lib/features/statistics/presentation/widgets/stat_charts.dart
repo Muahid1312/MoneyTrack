@@ -1,3 +1,4 @@
+import '../../../../core/theme/app_accent.dart';
 import 'dart:math' as math;
 
 import 'package:fl_chart/fl_chart.dart';
@@ -369,8 +370,8 @@ class ExpenseDonut extends StatelessWidget {
                 for (var i = 0; i < shares.length; i++)
                   PieChartSectionData(
                     value: shares[i].amountMinor.toDouble(),
-                    color: selected == null || selected == i
-                        ? shares[i].category.color
+                    color: selected == i ? context.accent.primary
+                        : selected == null ? shares[i].category.color
                         : shares[i].category.color.withValues(alpha: 0.28),
                     radius: selected == i ? ring + 8 : ring,
                     showTitle: false,

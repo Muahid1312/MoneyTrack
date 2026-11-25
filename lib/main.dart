@@ -1,3 +1,5 @@
+import 'features/settings/application/appearance_controller.dart';
+import 'features/settings/application/settings_controller.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -116,7 +118,15 @@ Future<bool> _launchApplication() async {
     } catch (_) {container.dispose();await activeDatabase.close();database=null;rethrow;}
     _currentContainer=container;_currentDatabase=database;
     AccessGuard.maintenance=false;
-    runApp(AppLockGate(security:SecurityController.instance,builder:()=>UncontrolledProviderScope(container:container,child:const MoneyTrackApp())));
+    runApp(AppLockGate(
+      security: SecurityController.instance,
+      builder: () => UncontrolledProviderScope(container: container, child: const MoneyTrackApp()),
+      appearance: () {
+        final settings = container.read(settingsProvider);
+        return (accent: container.read(accentProvider).seed,
+          mode: settings.themeMode, locale: settings.language.locale);
+      },
+    ));
     return true;
   } catch (_) {
     await database?.close();

@@ -1,3 +1,4 @@
+import '../theme/app_accent.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
@@ -9,7 +10,7 @@ void showAppSnack(
   BuildContext context, {
   required String message,
   IconData icon = Icons.check_circle_rounded,
-  Color iconColor = AppColors.emeraldBright,
+  Color? iconColor,
   String? actionLabel,
   VoidCallback? onAction,
   Duration duration = const Duration(seconds: 3),
@@ -22,7 +23,7 @@ void showAppSnack(
       duration: duration,
       content: Row(
         children: [
-          Icon(icon, color: iconColor, size: 20),
+          Icon(icon, color: AppAccent.readable(iconColor ?? context.palette.success, context.accent.dark), size: 20),
           const SizedBox(width: AppSpacing.md),
           Expanded(child: Text(message)),
         ],

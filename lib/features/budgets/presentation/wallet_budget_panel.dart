@@ -1,3 +1,8 @@
+import '../../../core/theme/app_accent.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/category_avatar.dart';
+import '../../../core/widgets/ledger_components.dart';
+import '../../../core/widgets/progress.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -16,8 +21,9 @@ import '../../wallets/presentation/wallets_screen.dart';
 import '../domain/wallet_budget.dart';
 
 class WalletBudgetPanel extends ConsumerWidget {
-  const WalletBudgetPanel({super.key, this.actions});
+  const WalletBudgetPanel({super.key, this.actions, this.showPosition = true});
   final Widget? actions;
+  final bool showPosition;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -107,6 +113,7 @@ class WalletBudgetPanel extends ConsumerWidget {
               ),
               const Divider(height: 28),
             ],
+            if (showPosition) ...[
             Text(
               actions == null
                   ? 'Available to spend'
@@ -121,6 +128,7 @@ class WalletBudgetPanel extends ConsumerWidget {
             Text(
               'Reserved savings   ${money(snapshot.reserved[wallet.id] ?? 0)}',
             ),
+            ],
             if (actions != null) ...[const SizedBox(height: 16), actions!],
             const Divider(),
             ref
@@ -182,10 +190,11 @@ class WalletBudgetPanel extends ConsumerWidget {
   }
 
   void _edit(BuildContext context, Wallet wallet, WalletBudget? budget) =>
-      Navigator.of(context).push(
-        MaterialPageRoute<void>(builder: (_) => _BudgetForm(wallet, budget)),
-      );
+      showWalletBudgetEditor(context, wallet, budget);
 }
+
+Future<void> showWalletBudgetEditor(BuildContext context, Wallet wallet, [WalletBudget? budget]) =>
+    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => _BudgetForm(wallet, budget)));
 
 class _BudgetItem extends StatelessWidget {
   const _BudgetItem({
@@ -244,11 +253,28 @@ class _BudgetItem extends StatelessWidget {
         : status.remaining < 0
         ? '${money(-status.remaining)} over budget'
         : '${money(status.remaining)} left';
-    return ExpansionTile(
+    final ratio = status == null ? 0.0 : status.spent / (budget.limit + status.carry);
+    final color = budgetColor(context, ratio);
+    return Card(
+      color: context.palette.surfaceMuted,
+      child: ExpansionTile(
       key: ValueKey(budget.id),
-      tilePadding: EdgeInsets.zero,
-      title: Text('$label · $category'),
-      subtitle: Text(ended ? 'Ended · $summary' : summary),
+      tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      childrenPadding: const EdgeInsets.symmetric(horizontal: 12),
+      leading: budget.category == null
+        ? const LedgerGlyph(Icons.donut_large_outlined)
+        : CategoryAvatar(category: Categories.byId(budget.category!), size: 36),
+      title: Text('$label · $category', style: Theme.of(context).textTheme.titleSmall),
+      subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        if (status != null) Text('${money(status.spent)} of ${money(budget.limit + status.carry)}'),
+        Text(ended ? 'Ended · $summary' : summary,
+          style: TextStyle(color: status != null && status.remaining < 0
+            ? context.palette.expense : context.accent.onSurface)),
+        if (status != null) ...[
+          const SizedBox(height: 5),
+          AnimatedProgressBar(value: money(0) == '••••' ? 0 : ratio, color: color, height: 6),
+        ],
+      ]),
       expandedCrossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Align(
@@ -275,7 +301,7 @@ class _BudgetItem extends StatelessWidget {
         ],
         TextButton(onPressed: onEdit, child: const Text('Edit budget')),
       ],
-    );
+    ));
   }
 }
 

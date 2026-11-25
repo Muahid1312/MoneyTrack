@@ -97,7 +97,7 @@ void main() {
       tester.platformDispatcher.platformBrightnessTestValue = Brightness.dark;
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
-      expect(find.text('Group cash'), findsOneWidget);
+      expect(find.text('Group cash · AFN'), findsOneWidget);
       await captureView(tester, key, 'group-large-dark');
       expect(tester.takeException(), isNull);
     },

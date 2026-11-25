@@ -1,3 +1,5 @@
+import 'package:moneytrack/features/explore/explore_screen.dart';
+import 'support/open_feature.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -247,10 +249,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.pump(const Duration(seconds: 5));
       await tester.pumpAndSettle();
-      await tester.tap(
-        find.widgetWithText(NavigationDestination, 'Transactions'),
-      );
-      await tester.pumpAndSettle();
+      await openFeature(tester, MoneyFeature.calendar);
       await tester.tap(find.byTooltip('Add transaction'));
       await tester.pumpAndSettle();
       await tester.enterText(
@@ -260,11 +259,20 @@ void main() {
       await tester.enterText(find.byKey(const ValueKey('entry-note')), 'Rent');
       FocusManager.instance.primaryFocus?.unfocus();
       await tester.pumpAndSettle();
-      await tester.tap(find.text('More details'));
+      final details = find.text('More details');
+      if (details.evaluate().isEmpty) {
+        await tester.scrollUntilVisible(details, 240, scrollable: find.byWidgetPredicate(
+          (widget) => widget is Scrollable && widget.axisDirection == AxisDirection.down,
+        ).first);
+      }
+      await tester.ensureVisible(details);
+      await tester.pumpAndSettle();
+      await tester.tap(details);
       await tester.pumpAndSettle();
       final schedule = find.text('Create a recurring schedule');
       await tester.ensureVisible(schedule);
-      await tester.tap(schedule);
+      await tester.pumpAndSettle();
+      await tester.tap(schedule.hitTestable());
       await tester.pumpAndSettle();
       expect(find.text('32.25'), findsOneWidget);
       final saveRule = find.text('Save recurring rule');

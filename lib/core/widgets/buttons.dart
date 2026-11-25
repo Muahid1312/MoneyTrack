@@ -1,3 +1,4 @@
+import '../theme/app_accent.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
@@ -27,22 +28,22 @@ class PrimaryButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final enabled = onPressed != null && !loading;
-    final base = destructive ? const Color(0xFFBE123C) : AppColors.primaryDark;
-    final deep = destructive ? const Color(0xFF9F1239) : const Color(0xFF065F46);
+    final base = destructive ? context.palette.expense : context.accent.primary;
+    final ink = AppAccent.ink(base);
     final t = Theme.of(context).textTheme;
     final content = Row(
       mainAxisSize: expanded ? MainAxisSize.max : MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         if (loading)
-          const SizedBox(
+          SizedBox(
             width: 20,
             height: 20,
-            child: CircularProgressIndicator(strokeWidth: 2.2, color: Colors.white),
+            child: CircularProgressIndicator(strokeWidth: 2.2, color: ink),
           )
         else ...[
           if (icon != null) ...[
-            Icon(icon, color: Colors.white, size: 20),
+            Icon(icon, color: ink, size: 20),
             const SizedBox(width: AppSpacing.sm),
           ],
           Flexible(
@@ -50,7 +51,7 @@ class PrimaryButton extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: t.titleSmall?.copyWith(
-                    color: Colors.white, fontWeight: FontWeight.w700)),
+                    color: ink, fontWeight: FontWeight.w700)),
           ),
         ],
       ],
@@ -67,12 +68,7 @@ class PrimaryButton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xxl),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [base, deep],
-            ),
-            boxShadow: enabled ? AppShadows.glow(base, strength: 0.3) : null,
+            color: base,
           ),
           child: content,
         ),
@@ -185,7 +181,7 @@ class AppIconButton extends StatelessWidget {
                   width: 10,
                   height: 10,
                   decoration: BoxDecoration(
-                    color: AppColors.primary,
+                    color: context.accent.primary,
                     shape: BoxShape.circle,
                     border: Border.all(color: p.background, width: 2),
                   ),

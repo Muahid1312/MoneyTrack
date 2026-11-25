@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../app/app_shell.dart';
+import '../transactions/presentation/ledger_screen.dart';
+import '../statistics/presentation/ledger_statistics_screen.dart';
 import '../../core/constants/categories.dart';
 import '../../core/utils/date_utils.dart';
 import '../../core/utils/money.dart';
@@ -16,6 +17,7 @@ import '../planning/presentation/planning_screens.dart';
 import '../planning/presentation/upcoming_screen.dart';
 import '../projects/presentation/projects_screen.dart';
 import '../groups/presentation/groups_screen.dart';
+import '../managed_funds/presentation/managed_funds_screen.dart';
 import '../reports/presentation/reports_screen.dart';
 import '../security/presentation/security_widgets.dart';
 import '../settings/presentation/settings_screen.dart';
@@ -28,14 +30,14 @@ import '../dashboard/presentation/dashboard_screen.dart';
 enum MoneyFeature {
   overview('Planning','Available cash','Check cash, reserved savings and wallet spending plans.','dashboard home today available balance budget emergency',Icons.account_balance_outlined),
   wallets(
-    'Group Money',
+    'Money Management',
     'Wallets and accounts',
     'Check cash and view each account’s history.',
     'bank cash opening balance archive',
     Icons.account_balance_wallet_outlined,
   ),
   transfer(
-    'Group Money',
+    'Money Management',
     'Transfer money',
     'Move cash between your wallets.',
     'send exchange fx rate conversion',
@@ -47,6 +49,13 @@ enum MoneyFeature {
     'Browse income and spending by category.',
     'food salary groceries transport dining',
     Icons.category_outlined,
+  ),
+  calendar(
+    'Financial Management',
+    'Transaction calendar',
+    'Browse daily, weekly and monthly entries.',
+    'ledger calendar transactions history activity',
+    Icons.calendar_month_outlined,
   ),
   activity(
     'Financial Management',
@@ -111,7 +120,14 @@ enum MoneyFeature {
     'notification notify alarm reconcile planning',
     Icons.notifications_outlined,
   ),
-  groups('Group Money','Groups & Trips','Collect contributions, track shared purchases and settle refunds.','friends picnic group expenses trip fund football futsal outing shared split reimbursements',Icons.groups_outlined),
+  groups('Money Management','Groups & Trips','Collect contributions, track shared purchases and settle refunds.','friends picnic group expenses trip fund football futsal outing shared split reimbursements',Icons.groups_outlined),
+  managedFunds(
+    'Money Management',
+    'Managed Funds',
+    'Track money entrusted to you and record purchases and advances.',
+    'پول امانتی entrusted groceries parent provider reimbursement funds',
+    Icons.inventory_2_outlined,
+  ),
   projects(
     'Financial Management',
     'Projects',
@@ -121,7 +137,7 @@ enum MoneyFeature {
   ),
   insights(
     'Financial Management',
-    'Spending insights',
+    'Statistics',
     'Compare spending and income over time.',
     'analytics statistics trends chart balance categories',
     Icons.bar_chart,
@@ -162,6 +178,10 @@ enum MoneyFeature {
     Icons.ios_share,
   ),
   appearance('Application','Appearance','Choose light, dark or system theme.','display night mode day theme colors',Icons.contrast_outlined),
+  profile(
+    'Application', 'Profile', 'Change the name on your Home screen.',
+    'personal profile name account greeting', Icons.person_outline,
+  ),
   settings(
     'Application',
     'Settings',
@@ -191,12 +211,13 @@ enum MoneyFeature {
 
   Future<void> open(BuildContext context, WidgetRef ref) async {
     if (this == add) return TransactionActions.openEditor(context, ref);
-    if (this == insights) {
-      ref.read(shellTabProvider.notifier).state = 1;
-      return;
+    if (this == activity || this == calendar) {
+      ref.read(transactionFilterProvider.notifier).state = const TransactionFilter();
+      ref.read(activityCurrencyChoiceProvider.notifier).state = null;
     }
     final page = switch (this) {
       overview => Scaffold(appBar:AppBar(title:const Text('Available cash')),body:const DashboardScreen()),
+      calendar => const LedgerScreen(),
       activity => Scaffold(appBar:AppBar(title:const Text('Search all transactions')),body:const TransactionsScreen()),
       wallets => const WalletsScreen(),
       transfer => const TransferScreen(),
@@ -221,6 +242,8 @@ enum MoneyFeature {
       upcoming => const UpcomingScreen(),
       reminders => const PlanningScreen(),
       groups => const GroupsScreen(),
+      managedFunds => const ManagedFundsScreen(),
+      insights => const LedgerStatisticsScreen(),
       projects => const ProjectsScreen(),
       reports => const ReportsScreen(),
       currency => const SettingsScreen(page: SettingsPage.currency),
@@ -228,6 +251,7 @@ enum MoneyFeature {
       security => const SecuritySettingsScreen(),
       export => const SettingsScreen(page: SettingsPage.export),
       appearance => const SettingsScreen(page:SettingsPage.appearance),
+      profile => const SettingsScreen(page: SettingsPage.profile),
       settings => const SettingsScreen(),
       _ => throw StateError('Unknown destination'),
     };
@@ -483,13 +507,16 @@ class _ExploreState extends ConsumerState<ExploreScreen> {
                 'No matching features. Try a shorter name such as “debt” or “wallet”.',
               ),
             ),
-          for (final group in const ['Group Money','Planning','Financial Management','Tools','Application']) if(items.any((f)=>f.group==group)) ...[
+          for (final group in const ['Money Management','Planning','Financial Management','Tools','Application']) if(items.any((f)=>f.group==group)) ...[
             _Heading(group),
             Card(
               clipBehavior: Clip.antiAlias,
               child: Column(
                 children: [
-                  for(final f in [if(group=='Group Money' && items.contains(MoneyFeature.groups))MoneyFeature.groups,...items.where((f)=>f.group==group && f!=MoneyFeature.groups)])
+                  for(final f in [
+                    if(group=='Money Management') ...[MoneyFeature.groups, MoneyFeature.managedFunds].where(items.contains),
+                    ...items.where((f)=>f.group==group && f!=MoneyFeature.groups && f!=MoneyFeature.managedFunds),
+                  ])
                     _FeatureTile(key:ValueKey('feature-${f.name}'),feature:f,pinned:_pins.contains(f),onOpen:()=>_open(f),onPin:_ready?()=>_pin(f):null),
 
                 ],
