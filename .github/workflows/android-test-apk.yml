@@ -1,23 +1,29 @@
-name: MoneyTrack 4.0 preview APK
+name: Android test APK
+
 on:
   push:
-    branches: [verify/moneytrack-3.0]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      visual_review:
+        description: Capture the app on an Android emulator
+        type: boolean
+        default: false
+
 permissions:
   contents: read
-env:
-  BUILD_COMMIT: 5f092d890f624b8573d3e0667d0d65059ec2204a
-  APK_NAME: MoneyTrack-4.0.0-preview-debug.apk
-  RELEASE_TAG: v4.0.0-dev.1
+
+concurrency:
+  group: android-test-apk-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   verify-and-build:
-    if: github.repository == 'Muahid1312/MoneyTrack'
+    if: ${{ !contains(github.event.head_commit.message, '[checks only]') }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v5
-        with:
-          ref: ${{ env.BUILD_COMMIT }}
-          persist-credentials: false
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -31,55 +37,100 @@ jobs:
         run: bash tool/ci_capture.sh 'Dependency resolution' flutter pub get --enforce-lockfile
       - name: Check SQLite migration and rollback SQL
         run: python3 tool/check_sqlite.py
+      - name: Format sources in the build workspace
+        run: dart format lib test
       - name: Analyze
-        run: bash tool/ci_capture.sh 'Flutter analysis' flutter analyze --no-pub --no-fatal-infos --no-fatal-warnings
+        run: bash tool/ci_capture.sh 'Flutter analysis' flutter analyze --no-fatal-infos --no-fatal-warnings
       - name: Build APK for device testing
-        run: |
-          test "$(git rev-parse HEAD)" = "$BUILD_COMMIT"
-          bash tool/ci_capture.sh 'Android preview APK' flutter build apk --no-pub --debug --build-name=4.0.0-dev.1 --build-number=9
-      - name: Verify the APK signing certificate, version and checksum
-        run: |
-          mkdir -p build/device-apk
-          cp build/app/outputs/flutter-apk/app-debug.apk "build/device-apk/$APK_NAME"
-          cd build/device-apk
-          signer="$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)"
-          "$signer" verify --verbose --print-certs "$APK_NAME" > signer.txt
-          grep -F 'CN=Android Debug' signer.txt
-          "$(dirname "$signer")/aapt" dump badging "$APK_NAME" > manifest.txt
-          grep -F "package: name='com.moneytrack.moneytrack' versionCode='9' versionName='4.0.0-dev.1'" manifest.txt
-          sha256sum "$APK_NAME" > "$APK_NAME.sha256"
-      - name: Upload device-testing APK
+        run: bash tool/ci_capture.sh 'Android debug build' flutter build apk --debug
+      - name: Record artifact checksum
+        run: sha256sum build/app/outputs/flutter-apk/app-debug.apk > build/app/outputs/flutter-apk/app-debug.apk.sha256
+      - name: Upload debug-signed test APK
         uses: actions/upload-artifact@v4
         with:
-          name: MoneyTrack-4.0-preview-APK
-          path: build/device-apk/
-          retention-days: 14
+          name: MoneyTrack-3.4.0-debug-test-apk
+          path: |
+            build/app/outputs/flutter-apk/app-debug.apk
+            build/app/outputs/flutter-apk/app-debug.apk.sha256
           if-no-files-found: error
+          retention-days: 14
       - name: Run automated tests
         run: bash tool/ci_capture.sh 'Automated tests' bash tool/run_flutter_tests.sh
 
-  deliver:
+      - name: Prepare Android walkthrough
+        if: ${{ inputs.visual_review || contains(github.event.head_commit.message, '[visual review]') }}
+        run: |
+          bash tool/ci_capture.sh 'Android walkthrough build' flutter build apk --debug --no-pub --target-platform=android-x64 --target=integration_test/visual_review_test.dart
+          (cd android && ./gradlew --stop)
+          df -h .
+      - name: Pass walkthrough APK to the emulator
+        if: ${{ inputs.visual_review || contains(github.event.head_commit.message, '[visual review]') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-walkthrough-input
+          path: build/app/outputs/flutter-apk/app-debug.apk
+          retention-days: 1
+
+  android-walkthrough:
+    if: ${{ inputs.visual_review || contains(github.event.head_commit.message, '[visual review]') }}
     needs: verify-and-build
     runs-on: ubuntu-24.04
-    timeout-minutes: 8
-    permissions:
-      contents: write
-    env:
-      GH_TOKEN: ${{ github.token }}
+    timeout-minutes: 25
     steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.35.6'
+          cache: true
       - uses: actions/download-artifact@v4
         with:
-          name: MoneyTrack-4.0-preview-APK
-          path: device-apk
-      - name: Publish the Android testing prerelease
+          name: android-walkthrough-input
+          path: build/walkthrough
+      - name: Resolve driver dependencies
+        run: bash tool/ci_capture.sh 'Driver dependencies' flutter pub get --enforce-lockfile
+      - name: Prepare emulator storage and KVM
         run: |
-          cd device-apk
-          sha256sum -c "$APK_NAME.sha256"
-          cat > "$RUNNER_TEMP/moneytrack-apk-notes.md" <<'NOTES'
-          Android device-testing build for the redesigned MoneyTrack app. The APK includes the customizable appearance settings, Managed Funds foundation, Home dashboard, Budgets, Accounts and transaction keypad.
+          sudo chmod a+rw /dev/kvm
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends libpulse0
+          # These preinstalled toolchains are unused on this disposable Android-only runner.
+          sudo rm -rf -- /usr/share/dotnet /usr/local/.ghcup
+          echo "ANDROID_AVD_HOME=$RUNNER_TEMP/moneytrack-avd" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/moneytrack-avd"
+          df -h .
+      - name: Install Android 30 emulator image
+        run: |
+          bash tool/ci_capture.sh 'Android system image' "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platform-tools' 'emulator' 'system-images;android-30;aosp_atd;x86_64'
+          echo no | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd --name moneytrack -k 'system-images;android-30;aosp_atd;x86_64'
+          df -h .
+      - name: Start Android emulator
+        run: bash tool/ci_capture.sh 'Emulator boot' bash tool/start_visual_emulator.sh
+      - name: Capture Android screens
+        run: bash tool/ci_capture.sh 'Android visual walkthrough' flutter drive --no-pub --use-application-binary=build/walkthrough/app-debug.apk --driver=test_driver/visual_review.dart --target=integration_test/visual_review_test.dart -d emulator-5554
+      - name: Upload Android screenshots
+        if: ${{ !cancelled() && hashFiles('build/visual-review/*.png') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: MoneyTrack-3.4.0-android-screens
+          path: build/visual-review
+          if-no-files-found: error
+          retention-days: 14
 
-          Download the APK and its SHA-256 checksum below. The GitHub runner signed it with an Android debug certificate. Android requires a matching signing certificate for an in-place update. Export an encrypted backup from your installed app before device testing.
-          NOTES
-          printf '\n[Source commit](https://github.com/%s/commit/%s) · [Build and tests](https://github.com/%s/actions/runs/%s)\n\nAPK SHA-256 `%s`\n\n' "$GITHUB_REPOSITORY" "$BUILD_COMMIT" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" "$(cut -d ' ' -f 1 "$APK_NAME.sha256")" >> "$RUNNER_TEMP/moneytrack-apk-notes.md"
-          grep 'certificate SHA-256 digest:' signer.txt | head -1 >> "$RUNNER_TEMP/moneytrack-apk-notes.md"
-          gh release create "$RELEASE_TAG" "$APK_NAME" "$APK_NAME.sha256" --repo "$GITHUB_REPOSITORY" --target "$BUILD_COMMIT" --prerelease --latest=false --title 'MoneyTrack 4.0 Android preview' --notes-file "$RUNNER_TEMP/moneytrack-apk-notes.md"
+  tests-only:
+    if: ${{ contains(github.event.head_commit.message, '[checks only]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.35.6'
+          cache: true
+      - run: bash tool/ci_capture.sh 'Dependency resolution' flutter pub get --enforce-lockfile
+      - run: bash tool/ci_capture.sh 'Automated tests' bash tool/run_flutter_tests.sh
